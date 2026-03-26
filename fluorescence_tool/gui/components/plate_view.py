@@ -62,21 +62,57 @@ class PlateView(ttk.Frame):
         self.drag_start: Optional[Tuple[int, int]] = None
         self.drag_rect: Optional[int] = None
         
-        # Color scheme
-        self.colors = {
-            'sample': '#4CAF50',      # Green
-            'neg_cntrl': '#2196F3',   # Blue
-            'pos_cntrl': '#FF9800',   # Orange
+        # Fixed color scheme for predetermined types
+        self.type_colors = {
+            'sample': '#2196F3',      # Blue (outline)
+            'neg_cntrl': '#FF9800',   # Orange (outline)
+            'pos_cntrl': '#4CAF50',   # Green (outline)
             'unused': '#E0E0E0',      # Light gray
             'unknown': '#9E9E9E',     # Gray
+        }
+        
+        # Default color for any other well types (pentagon shapes)
+        self.default_other_color = '#9C27B0'  # Purple
+        
+        # Softer, muted colors for Group1 (fill colors, avoiding type colors)
+        self.group1_palette = [
+            '#B39DDB', '#F8BBD9', '#BCAAA4', '#90A4AE', '#80DEEA',
+            '#C5E1A5', '#F0F4C3', '#FFE0B2', '#FFCDD2', '#C5CAE9',
+            '#B2DFDB', '#D1C4E9', '#F8BBD9', '#BBDEFB', '#B3E5FC'
+        ]
+        
+        # Group2: 6 truly distinct symbols (filled vs open variants)
+        self.group2_symbols = [
+            'plus',           # Plus symbol (+)
+            'filled_circle',  # Solid circle (●)
+            'open_circle',    # Open circle (○)
+            'filled_star',    # Solid star (★)
+            'open_star',      # Open star (☆)
+            'cross'           # X-shaped cross (✕)
+        ]
+        
+        # No predefined mappings - all assignments are dynamic based on data order
+        
+        # Group3: 4 truly distinct patterns (simplified for reliability)
+        self.group3_patterns = [
+            '|||',       # Vertical lines
+            '---',       # Horizontal lines
+            '///',       # Forward diagonal lines
+            '...'        # Dot pattern
+        ]
+        
+        # UI colors
+        self.ui_colors = {
             'selected': '#F44336',    # Red
             'border': '#333333',      # Dark gray
             'background': '#FFFFFF'   # White
         }
         
-        # Grouping state
+        # Grouping state and color assignments
         self.active_groupings: Set[str] = {'Type'}  # Default grouping
-        self.group_colors: Dict[str, str] = {}
+        self.group1_colors: Dict[str, str] = {}
+        self.group2_symbol_assignments: Dict[str, str] = {}  # Track symbol assignments
+        self.group3_pattern_assignments: Dict[str, str] = {}  # Track pattern assignments
         
         self._setup_ui()
         
@@ -140,9 +176,9 @@ class PlateView(ttk.Frame):
         # Create scrollable canvas
         self.canvas = tk.Canvas(
             canvas_frame,
-            bg=self.colors['background'],
+            bg=self.ui_colors['background'],
             highlightthickness=1,
-            highlightbackground=self.colors['border']
+            highlightbackground=self.ui_colors['border']
         )
         
         # Scrollbars
@@ -234,7 +270,7 @@ class PlateView(ttk.Frame):
                 x, 15,
                 text=str(col + 1),
                 font=("TkDefaultFont", 8),
-                fill=self.colors['border']
+                fill=self.ui_colors['border']
             )
             
         # Draw row labels
@@ -246,7 +282,7 @@ class PlateView(ttk.Frame):
                 15, y,
                 text=row_letter,
                 font=("TkDefaultFont", 8),
-                fill=self.colors['border']
+                fill=self.ui_colors['border']
             )
             
         # Draw wells
@@ -254,99 +290,479 @@ class PlateView(ttk.Frame):
             self._draw_well(well_id, pos)
             
     def _draw_well(self, well_id: str, pos: WellPosition):
-        """Draw a single well with appropriate color coding."""
-        # Determine well color
-        color = self._get_well_color(well_id)
-        
-        # Draw well circle
+        """Draw a single well with multi-layer visualization system."""
         well_tag = f"well_{well_id}"
-        self.canvas.create_oval(
-            pos.x, pos.y,
-            pos.x + pos.width, pos.y + pos.height,
-            fill=color,
-            outline=self.colors['border'],
-            width=1,
-            tags=(well_tag, "well")
-        )
+        
+        # Get visual properties for this well
+        fill_color, outline_color, symbol, pattern = self._get_well_visual_properties(well_id)
+        
+        # Get well type for shape determination
+        well_type = 'unknown'
+        if well_id in self.layout_data:
+            well_type = self.layout_data[well_id].well_type
+        
+        # Draw base well shape based on type
+        self._draw_well_shape(well_id, pos, well_type, fill_color, outline_color)
+        
+        # Draw Group3 pattern/texture if specified and checkbox checked
+        if pattern and self.grouping_vars['Group_3'].get():
+            self._draw_well_pattern(well_id, pos, pattern, outline_color)
+            
+        # Draw Group2 symbol if specified and checkbox checked
+        if symbol and self.grouping_vars['Group_2'].get():
+            self._draw_well_symbol(well_id, pos, symbol, outline_color)
         
         # Add selection indicator if selected
         if well_id in self.selected_wells:
+            self._draw_selection_indicator(well_id, pos, well_type)
+            
+        # Remove well labels to avoid interference with symbols and patterns
+        # Well labels (H2, etc.) are not displayed to keep wells clean for visual encoding
+        pass
+        
+    def _draw_well_shape(self, well_id: str, pos: WellPosition, well_type: str, fill_color: str, outline_color: str):
+        """Draw the base well shape based on type."""
+        well_tag = f"well_{well_id}"
+        
+        if well_type == 'sample':
+            # Circular wells for samples
             self.canvas.create_oval(
-                pos.x - 2, pos.y - 2,
-                pos.x + pos.width + 2, pos.y + pos.height + 2,
+                pos.x, pos.y,
+                pos.x + pos.width, pos.y + pos.height,
+                fill=fill_color,
+                outline=outline_color,
+                width=2,
+                tags=(well_tag, "well")
+            )
+        elif well_type == 'neg_cntrl':
+            # Triangular wells for negative controls
+            center_x = pos.x + pos.width // 2
+            center_y = pos.y + pos.height // 2
+            radius = min(pos.width, pos.height) // 2 - 1
+            
+            # Equilateral triangle points
+            points = [
+                center_x, center_y - radius,  # Top
+                center_x - radius * 0.866, center_y + radius * 0.5,  # Bottom left
+                center_x + radius * 0.866, center_y + radius * 0.5   # Bottom right
+            ]
+            self.canvas.create_polygon(
+                points,
+                fill=fill_color,
+                outline=outline_color,
+                width=2,
+                tags=(well_tag, "well")
+            )
+        elif well_type == 'pos_cntrl':
+            # Square wells for positive controls
+            margin = 2
+            self.canvas.create_rectangle(
+                pos.x + margin, pos.y + margin,
+                pos.x + pos.width - margin, pos.y + pos.height - margin,
+                fill=fill_color,
+                outline=outline_color,
+                width=2,
+                tags=(well_tag, "well")
+            )
+        elif well_type == 'unused':
+            # Default circular shape for unused wells
+            self.canvas.create_oval(
+                pos.x, pos.y,
+                pos.x + pos.width, pos.y + pos.height,
+                fill=fill_color,
+                outline=outline_color,
+                width=1,
+                tags=(well_tag, "well")
+            )
+        else:
+            # Pentagon shape for any other well type (not sample, neg_cntrl, pos_cntrl, or unused)
+            center_x = pos.x + pos.width // 2
+            center_y = pos.y + pos.height // 2
+            radius = min(pos.width, pos.height) // 2 - 1
+            
+            # Create pentagon points (5 sides)
+            import math
+            points = []
+            for i in range(5):
+                angle = i * 2 * math.pi / 5 - math.pi / 2  # Start from top, 72 degrees between points
+                x = center_x + radius * math.cos(angle)
+                y = center_y + radius * math.sin(angle)
+                points.extend([x, y])
+            
+            self.canvas.create_polygon(
+                points,
+                fill=fill_color,
+                outline=outline_color,
+                width=2,
+                tags=(well_tag, "well")
+            )
+            
+    def _draw_selection_indicator(self, well_id: str, pos: WellPosition, well_type: str):
+        """Draw selection indicator matching the well shape."""
+        if well_type == 'sample' or well_type == 'unused' or well_type == 'unknown':
+            # Circular selection for circular wells
+            self.canvas.create_oval(
+                pos.x - 3, pos.y - 3,
+                pos.x + pos.width + 3, pos.y + pos.height + 3,
                 fill="",
-                outline=self.colors['selected'],
+                outline=self.ui_colors['selected'],
+                width=3,
+                tags=(f"selection_{well_id}", "selection")
+            )
+        elif well_type == 'neg_cntrl':
+            # Triangular selection for triangular wells
+            center_x = pos.x + pos.width // 2
+            center_y = pos.y + pos.height // 2
+            radius = min(pos.width, pos.height) // 2 + 2
+            
+            points = [
+                center_x, center_y - radius,
+                center_x - radius * 0.866, center_y + radius * 0.5,
+                center_x + radius * 0.866, center_y + radius * 0.5
+            ]
+            self.canvas.create_polygon(
+                points,
+                fill="",
+                outline=self.ui_colors['selected'],
+                width=3,
+                tags=(f"selection_{well_id}", "selection")
+            )
+        elif well_type == 'pos_cntrl':
+            # Square selection for square wells
+            self.canvas.create_rectangle(
+                pos.x - 3, pos.y - 3,
+                pos.x + pos.width + 3, pos.y + pos.height + 3,
+                fill="",
+                outline=self.ui_colors['selected'],
+                width=3,
+                tags=(f"selection_{well_id}", "selection")
+            )
+        else:
+            # Pentagon selection for pentagon wells
+            center_x = pos.x + pos.width // 2
+            center_y = pos.y + pos.height // 2
+            radius = min(pos.width, pos.height) // 2 + 2
+            
+            # Create pentagon points for selection (slightly larger)
+            import math
+            points = []
+            for i in range(5):
+                angle = i * 2 * math.pi / 5 - math.pi / 2  # Start from top, 72 degrees between points
+                x = center_x + radius * math.cos(angle)
+                y = center_y + radius * math.sin(angle)
+                points.extend([x, y])
+            
+            self.canvas.create_polygon(
+                points,
+                fill="",
+                outline=self.ui_colors['selected'],
                 width=3,
                 tags=(f"selection_{well_id}", "selection")
             )
             
-        # Add well label for small plates or if zoomed in
-        if self.plate_rows <= 8 or self.well_size > 20:
-            text_color = "white" if self._is_dark_color(color) else "black"
-            self.canvas.create_text(
-                pos.x + pos.width // 2,
-                pos.y + pos.height // 2,
-                text=well_id,
-                font=("TkDefaultFont", max(6, self.well_size // 4)),
-                fill=text_color,
-                tags=(well_tag, "well_label")
-            )
-            
-    def _get_well_color(self, well_id: str) -> str:
-        """Get the color for a well based on current grouping settings."""
+    def _get_well_visual_properties(self, well_id: str) -> tuple:
+        """Get visual properties (fill_color, outline_color, symbol, pattern) for a well."""
         if well_id not in self.layout_data:
-            return self.colors['unknown']
+            return self.type_colors['unknown'], self.ui_colors['border'], None, None
             
         well_info = self.layout_data[well_id]
         
-        # Build grouping key
-        group_key_parts = []
-        for group_name in ['Type', 'Group_1', 'Group_2', 'Group_3']:
-            if self.grouping_vars[group_name].get():
-                if group_name == 'Type':
-                    value = well_info.well_type
-                elif group_name == 'Group_1':
-                    value = well_info.group_1
-                elif group_name == 'Group_2':
-                    value = well_info.group_2
-                elif group_name == 'Group_3':
-                    value = well_info.group_3
-                else:
-                    value = None
-                    
-                if value:
-                    group_key_parts.append(f"{group_name}:{value}")
-                    
-        group_key = "|".join(group_key_parts) if group_key_parts else "unknown"
+        # 1. Get outline color based on well type (for pentagon shapes)
+        if well_info.well_type in self.type_colors:
+            outline_color = self.ui_colors['border']
+        else:
+            # For other well types (pentagon shapes), use the default color as outline
+            outline_color = self.default_other_color
         
-        # Get or assign color for this group
-        if group_key not in self.group_colors:
-            self.group_colors[group_key] = self._assign_group_color(group_key)
+        # 2. Fill color from Group1 (dynamic colors, only if checkbox checked)
+        if self.grouping_vars['Group_1'].get():
+            fill_color = self._get_group1_color(well_info.group_1)
+        else:
+            fill_color = '#F5F5F5'  # Light gray when Group1 not displayed
+        
+        # 3. Symbol from Group2
+        symbol = self._get_group2_symbol(well_info.group_2)
+        
+        # 4. Pattern from Group3
+        pattern = self._get_group3_pattern(well_info.group_3)
+        
+        return fill_color, outline_color, symbol, pattern
+        
+    def _get_group1_color(self, group1_value: str) -> str:
+        """Get fill color for Group1 value."""
+        if not group1_value or group1_value.lower() in ['', 'none', 'null']:
+            return '#F5F5F5'  # Light gray for no group
             
-        return self.group_colors[group_key]
-        
-    def _assign_group_color(self, group_key: str) -> str:
-        """Assign a color to a new group combination."""
-        # Check for standard well types first
-        if "Type:sample" in group_key:
-            return self.colors['sample']
-        elif "Type:neg_cntrl" in group_key:
-            return self.colors['neg_cntrl']
-        elif "Type:pos_cntrl" in group_key:
-            return self.colors['pos_cntrl']
-        elif "Type:unused" in group_key:
-            return self.colors['unused']
+        if group1_value not in self.group1_colors:
+            # Assign next available color
+            color_index = len(self.group1_colors) % len(self.group1_palette)
+            self.group1_colors[group1_value] = self.group1_palette[color_index]
             
-        # Generate color for complex groupings
-        color_palette = [
-            '#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336',
-            '#00BCD4', '#8BC34A', '#FFC107', '#E91E63', '#3F51B5',
-            '#009688', '#CDDC39', '#FF5722', '#795548', '#607D8B'
-        ]
+        return self.group1_colors[group1_value]
         
-        # Use hash of group key to consistently assign colors
-        color_index = hash(group_key) % len(color_palette)
-        return color_palette[color_index]
+    def _get_group2_symbol(self, group2_value: str) -> str:
+        """Get symbol for Group2 value, ensuring unique symbols for unique values."""
+        if not group2_value or group2_value.lower() in ['', 'none', 'null']:
+            return None
+            
+        # Check if this value already has an assigned symbol
+        if group2_value in self.group2_symbol_assignments:
+            return self.group2_symbol_assignments[group2_value]
+            
+        # Get all available symbols from the list
+        used_symbols = set(self.group2_symbol_assignments.values())
+        
+        # Find first unused symbol from the list
+        for symbol in self.group2_symbols:
+            if symbol not in used_symbols:
+                self.group2_symbol_assignments[group2_value] = symbol
+                return symbol
+        
+        # If all symbols are used, this shouldn't happen with 6 symbols for typical data
+        # But as fallback, cycle through them
+        symbol_index = len(self.group2_symbol_assignments) % len(self.group2_symbols)
+        symbol = self.group2_symbols[symbol_index]
+        self.group2_symbol_assignments[group2_value] = symbol
+        return symbol
+            
+    def _get_group3_pattern(self, group3_value: str) -> str:
+        """Get pattern for Group3 value, ensuring unique patterns for unique values."""
+        if not group3_value or group3_value.lower() in ['', 'none', 'null']:
+            return None
+            
+        # Check if this value already has an assigned pattern
+        if group3_value in self.group3_pattern_assignments:
+            return self.group3_pattern_assignments[group3_value]
+            
+        # Get all available patterns from the list
+        used_patterns = set(self.group3_pattern_assignments.values())
+        
+        # Find first unused pattern from the list
+        for pattern in self.group3_patterns:
+            if pattern not in used_patterns:
+                self.group3_pattern_assignments[group3_value] = pattern
+                return pattern
+        
+        # If all patterns are used, this shouldn't happen with 4 patterns for typical data
+        # But as fallback, cycle through them
+        pattern_index = len(self.group3_pattern_assignments) % len(self.group3_patterns)
+        pattern = self.group3_patterns[pattern_index]
+        self.group3_pattern_assignments[group3_value] = pattern
+        return pattern
+            
+    def _draw_well_symbol(self, well_id: str, pos: WellPosition, symbol: str, color: str):
+        """Draw a smaller, distinct solid symbol in the center of the well (Group2)."""
+        center_x = pos.x + pos.width // 2
+        center_y = pos.y + pos.height // 2
+        symbol_size = min(pos.width, pos.height) // 4  # Smaller symbols (was //3)
+        
+        symbol_tag = f"symbol_{well_id}"
+        
+        if symbol == 'filled_circle':
+            self.canvas.create_oval(
+                center_x - symbol_size//2, center_y - symbol_size//2,
+                center_x + symbol_size//2, center_y + symbol_size//2,
+                fill=color, outline=color,
+                tags=(symbol_tag, "symbol")
+            )
+        elif symbol == 'open_circle':
+            self.canvas.create_oval(
+                center_x - symbol_size//2, center_y - symbol_size//2,
+                center_x + symbol_size//2, center_y + symbol_size//2,
+                fill="", outline=color, width=2,
+                tags=(symbol_tag, "symbol")
+            )
+        elif symbol == 'filled_star':
+            # 5-pointed star (filled)
+            import math
+            points = []
+            for i in range(10):  # 5 outer points + 5 inner points
+                angle = i * math.pi / 5  # 36 degrees between points
+                if i % 2 == 0:  # Outer points
+                    radius = symbol_size
+                else:  # Inner points
+                    radius = symbol_size * 0.4
+                x = center_x + radius * math.cos(angle - math.pi/2)
+                y = center_y + radius * math.sin(angle - math.pi/2)
+                points.extend([x, y])
+            self.canvas.create_polygon(
+                points, fill=color, outline=color,
+                tags=(symbol_tag, "symbol")
+            )
+        elif symbol == 'open_star':
+            # 5-pointed star (outline only)
+            import math
+            points = []
+            for i in range(10):  # 5 outer points + 5 inner points
+                angle = i * math.pi / 5  # 36 degrees between points
+                if i % 2 == 0:  # Outer points
+                    radius = symbol_size
+                else:  # Inner points
+                    radius = symbol_size * 0.4
+                x = center_x + radius * math.cos(angle - math.pi/2)
+                y = center_y + radius * math.sin(angle - math.pi/2)
+                points.extend([x, y])
+            self.canvas.create_polygon(
+                points, fill="", outline=color, width=2,
+                tags=(symbol_tag, "symbol")
+            )
+        elif symbol == 'plus':
+            # Plus symbol for BONCAT
+            self.canvas.create_rectangle(
+                center_x - symbol_size//4, center_y - symbol_size,
+                center_x + symbol_size//4, center_y + symbol_size,
+                fill=color, outline=color,
+                tags=(symbol_tag, "symbol")
+            )
+            self.canvas.create_rectangle(
+                center_x - symbol_size, center_y - symbol_size//4,
+                center_x + symbol_size, center_y + symbol_size//4,
+                fill=color, outline=color,
+                tags=(symbol_tag, "symbol")
+            )
+        elif symbol == 'cross':
+            # X-shaped cross
+            # Draw two diagonal lines to form an X
+            self.canvas.create_line(
+                center_x - symbol_size, center_y - symbol_size,
+                center_x + symbol_size, center_y + symbol_size,
+                fill=color, width=3,
+                tags=(symbol_tag, "symbol")
+            )
+            self.canvas.create_line(
+                center_x - symbol_size, center_y + symbol_size,
+                center_x + symbol_size, center_y - symbol_size,
+                fill=color, width=3,
+                tags=(symbol_tag, "symbol")
+            )
+            
+    def _draw_well_pattern(self, well_id: str, pos: WellPosition, pattern: str, color: str):
+        """Draw a matplotlib-style hatch pattern as well fill texture (Group3)."""
+        pattern_tag = f"pattern_{well_id}"
+        spacing = 3  # Tighter spacing for better visibility
+        
+        if pattern == '///':  # Forward diagonal lines
+            for i in range(-pos.height//spacing, pos.width//spacing + 1):
+                x1 = pos.x + i * spacing
+                y1 = pos.y
+                x2 = pos.x + pos.width
+                y2 = pos.y + pos.height - i * spacing
+                
+                # Clip to well bounds (circular)
+                if x1 < pos.x:
+                    y1 += (pos.x - x1)
+                    x1 = pos.x
+                if y2 > pos.y + pos.height:
+                    x2 -= (y2 - pos.y - pos.height)
+                    y2 = pos.y + pos.height
+                    
+                if x1 <= pos.x + pos.width and y2 >= pos.y:
+                    self.canvas.create_line(
+                        x1, y1, x2, y2,
+                        fill=color, width=1,
+                        tags=(pattern_tag, "pattern")
+                    )
+                    
+        elif pattern == '\\\\\\':  # Backward diagonal lines
+            for i in range(-pos.width//spacing, pos.height//spacing + 1):
+                x1 = pos.x
+                y1 = pos.y + i * spacing
+                x2 = pos.x + pos.width - i * spacing
+                y2 = pos.y + pos.height
+                
+                # Clip to well bounds
+                if y1 < pos.y:
+                    x1 += (pos.y - y1)
+                    y1 = pos.y
+                if x2 > pos.x + pos.width:
+                    y2 -= (x2 - pos.x - pos.width)
+                    x2 = pos.x + pos.width
+                    
+                if y1 <= pos.y + pos.height and x2 >= pos.x:
+                    self.canvas.create_line(
+                        x1, y1, x2, y2,
+                        fill=color, width=1,
+                        tags=(pattern_tag, "pattern")
+                    )
+                    
+        elif pattern == '|||':  # Vertical lines
+            x = pos.x + spacing
+            while x < pos.x + pos.width - spacing:
+                self.canvas.create_line(
+                    x, pos.y + 2, x, pos.y + pos.height - 2,
+                    fill=color, width=1,
+                    tags=(pattern_tag, "pattern")
+                )
+                x += spacing
+                
+        elif pattern == '---':  # Horizontal lines
+            y = pos.y + spacing
+            while y < pos.y + pos.height - spacing:
+                self.canvas.create_line(
+                    pos.x + 2, y, pos.x + pos.width - 2, y,
+                    fill=color, width=1,
+                    tags=(pattern_tag, "pattern")
+                )
+                y += spacing
+                
+        elif pattern == '+++':  # Plus pattern
+            # Vertical lines
+            x = pos.x + spacing
+            while x < pos.x + pos.width - spacing:
+                self.canvas.create_line(
+                    x, pos.y + 2, x, pos.y + pos.height - 2,
+                    fill=color, width=1,
+                    tags=(pattern_tag, "pattern")
+                )
+                x += spacing * 2
+            # Horizontal lines
+            y = pos.y + spacing
+            while y < pos.y + pos.height - spacing:
+                self.canvas.create_line(
+                    pos.x + 2, y, pos.x + pos.width - 2, y,
+                    fill=color, width=1,
+                    tags=(pattern_tag, "pattern")
+                )
+                y += spacing * 2
+                
+        elif pattern == 'xxx':  # X pattern (crosshatch)
+            # Forward diagonals
+            self._draw_well_pattern(well_id, pos, '///', color)
+            # Backward diagonals
+            self._draw_well_pattern(well_id, pos, '\\\\\\', color)
+            
+        elif pattern == 'ooo':  # Circle pattern
+            for x in range(pos.x + spacing*2, pos.x + pos.width, spacing * 3):
+                for y in range(pos.y + spacing*2, pos.y + pos.height, spacing * 3):
+                    # Check if point is within well circle
+                    center_x = pos.x + pos.width // 2
+                    center_y = pos.y + pos.height // 2
+                    radius = min(pos.width, pos.height) // 2 - 2
+                    if (x - center_x)**2 + (y - center_y)**2 <= radius**2:
+                        self.canvas.create_oval(
+                            x - 1, y - 1, x + 1, y + 1,
+                            outline=color, width=1,
+                            tags=(pattern_tag, "pattern")
+                        )
+                        
+        elif pattern == '...':  # Dot pattern
+            for x in range(pos.x + spacing, pos.x + pos.width, spacing * 2):
+                for y in range(pos.y + spacing, pos.y + pos.height, spacing * 2):
+                    # Check if point is within well circle
+                    center_x = pos.x + pos.width // 2
+                    center_y = pos.y + pos.height // 2
+                    radius = min(pos.width, pos.height) // 2 - 2
+                    if (x - center_x)**2 + (y - center_y)**2 <= radius**2:
+                        self.canvas.create_oval(
+                            x, y, x + 1, y + 1,
+                            fill=color, outline=color,
+                            tags=(pattern_tag, "pattern")
+                        )
+            
+    def _get_well_color(self, well_id: str) -> str:
+        """Legacy method - now redirects to visual properties system."""
+        fill_color, outline_color, symbol, pattern = self._get_well_visual_properties(well_id)
+        return fill_color  # Return fill color for backward compatibility
         
     def _is_dark_color(self, color: str) -> bool:
         """Check if a color is dark (for text contrast)."""
@@ -388,7 +804,7 @@ class PlateView(ttk.Frame):
             
             self.drag_rect = self.canvas.create_rectangle(
                 x1, y1, x2, y2,
-                outline=self.colors['selected'],
+                outline=self.ui_colors['selected'],
                 width=2,
                 fill="",
                 tags="drag_rect"
@@ -467,8 +883,10 @@ class PlateView(ttk.Frame):
         self._update_selection_display()
         
     def _update_grouping(self):
-        """Update color grouping based on checkbox states."""
-        self.group_colors.clear()  # Reset color assignments
+        """Update visualization grouping based on checkbox states."""
+        self.group1_colors.clear()  # Reset Group1 color assignments
+        self.group2_symbol_assignments.clear()  # Reset Group2 symbol assignments
+        self.group3_pattern_assignments.clear()  # Reset Group3 pattern assignments
         self._update_plate_display()
         self._update_legend()
         
@@ -504,32 +922,236 @@ class PlateView(ttk.Frame):
         self.main_window.on_well_selection_changed(list(self.selected_wells))
         
     def _update_legend(self):
-        """Update the color legend display."""
+        """Update the multi-layer visualization legend display."""
         # Clear existing legend
         for widget in self.legend_frame_inner.winfo_children():
             widget.destroy()
             
-        # Create legend entries
-        legend_items = []
-        for group_key, color in self.group_colors.items():
-            legend_items.append((group_key, color))
-            
-        # Sort legend items
-        legend_items.sort(key=lambda x: x[0])
+        # Create legend sections
+        legend_frame = ttk.Frame(self.legend_frame_inner)
+        legend_frame.pack(fill=tk.X)
         
-        # Display legend items
-        for i, (group_key, color) in enumerate(legend_items):
-            frame = ttk.Frame(self.legend_frame_inner)
-            frame.pack(side=tk.LEFT, padx=(0, 15))
+        # Type legend (well shapes) - auto-populate based on actual data
+        if self.layout_data:
+            # Get actual types from data
+            actual_types = set()
+            for well in self.layout_data.values():
+                if well.well_type and well.well_type != 'unused':
+                    actual_types.add(well.well_type)
             
-            # Color indicator
-            color_canvas = tk.Canvas(frame, width=15, height=15, highlightthickness=0)
-            color_canvas.pack(side=tk.LEFT, padx=(0, 5))
-            color_canvas.create_oval(2, 2, 13, 13, fill=color, outline=self.colors['border'])
+            if actual_types:
+                type_frame = ttk.LabelFrame(legend_frame, text="Type (Shape)", padding=5)
+                type_frame.pack(side=tk.LEFT, padx=(0, 10), fill=tk.Y)
+                
+                for well_type in sorted(actual_types):
+                    item_frame = ttk.Frame(type_frame)
+                    item_frame.pack(anchor=tk.W, pady=1)
+                    
+                    # Shape indicator
+                    shape_canvas = tk.Canvas(item_frame, width=20, height=15, highlightthickness=0)
+                    shape_canvas.pack(side=tk.LEFT, padx=(0, 5))
+                    
+                    # Get color for this well type
+                    if well_type in self.type_colors:
+                        color = self.type_colors[well_type]
+                    else:
+                        color = self.default_other_color  # Use purple for other types
+                    
+                    self._draw_legend_shape(shape_canvas, well_type, color)
+                    
+                    ttk.Label(item_frame, text=well_type, font=("TkDefaultFont", 8)).pack(side=tk.LEFT)
             
-            # Label
-            label_text = group_key.replace("|", ", ").replace(":", ": ")
-            ttk.Label(frame, text=label_text, font=("TkDefaultFont", 8)).pack(side=tk.LEFT)
+        # Group1 legend (fill colors) - auto-populate based on data, show/hide based on checkbox
+        if self.layout_data:
+            # Get actual Group1 values from data
+            group1_values = set()
+            for well in self.layout_data.values():
+                if well.group_1 and well.group_1.strip():
+                    group1_values.add(well.group_1)
+            
+            if group1_values and self.grouping_vars['Group_1'].get():
+                group1_frame = ttk.LabelFrame(legend_frame, text="Group1 (Fill)", padding=5)
+                group1_frame.pack(side=tk.LEFT, padx=(0, 10), fill=tk.Y)
+                
+                # Only assign colors when Group1 checkbox is checked
+                for group_value in group1_values:
+                    if group_value not in self.group1_colors:
+                        # Assign next available color
+                        color_index = len(self.group1_colors) % len(self.group1_palette)
+                        self.group1_colors[group_value] = self.group1_palette[color_index]
+                
+                for group_value in sorted(group1_values):
+                    item_frame = ttk.Frame(group1_frame)
+                    item_frame.pack(anchor=tk.W, pady=1)
+                    
+                    # Color indicator
+                    color_canvas = tk.Canvas(item_frame, width=15, height=15, highlightthickness=0)
+                    color_canvas.pack(side=tk.LEFT, padx=(0, 5))
+                    color = self.group1_colors.get(group_value, '#F5F5F5')
+                    color_canvas.create_oval(2, 2, 13, 13, fill=color, outline=self.ui_colors['border'])
+                    
+                    ttk.Label(item_frame, text=group_value, font=("TkDefaultFont", 8)).pack(side=tk.LEFT)
+                
+        # Group2 legend (symbols) - only show if checkbox is checked AND there's Group2 data
+        if (self.grouping_vars['Group_2'].get() and
+            self.layout_data and
+            any(well.group_2 for well in self.layout_data.values() if well.group_2)):
+            
+            group2_frame = ttk.LabelFrame(legend_frame, text="Group2 (Symbols)", padding=5)
+            group2_frame.pack(side=tk.LEFT, padx=(0, 10), fill=tk.Y)
+            
+            # Get actual Group2 values from data
+            group2_values = set()
+            for well in self.layout_data.values():
+                if well.group_2 and well.group_2.strip():
+                    group2_values.add(well.group_2)
+            
+            # Show symbols for actual data values
+            for i, group_value in enumerate(sorted(group2_values)):
+                item_frame = ttk.Frame(group2_frame)
+                item_frame.pack(anchor=tk.W, pady=1)
+                
+                # Get symbol for this group value
+                symbol = self._get_group2_symbol(group_value)
+                
+                # Symbol indicator - larger canvas for better visibility
+                symbol_canvas = tk.Canvas(item_frame, width=20, height=20, highlightthickness=0)
+                symbol_canvas.pack(side=tk.LEFT, padx=(0, 5))
+                symbol_canvas.create_oval(2, 2, 18, 18, fill='#F5F5F5', outline=self.ui_colors['border'])
+                if symbol:
+                    self._draw_legend_symbol(symbol_canvas, 10, 10, symbol, self.ui_colors['border'])
+                
+                ttk.Label(item_frame, text=group_value, font=("TkDefaultFont", 8)).pack(side=tk.LEFT)
+                
+        # Group3 legend (patterns) - only show if checkbox is checked AND there's Group3 data
+        if (self.grouping_vars['Group_3'].get() and
+            self.layout_data and
+            any(well.group_3 for well in self.layout_data.values() if well.group_3)):
+            
+            group3_frame = ttk.LabelFrame(legend_frame, text="Group3 (Patterns)", padding=5)
+            group3_frame.pack(side=tk.LEFT, padx=(0, 10), fill=tk.Y)
+            
+            # Get actual Group3 values from data
+            group3_values = set()
+            for well in self.layout_data.values():
+                if well.group_3 and well.group_3.strip():
+                    group3_values.add(well.group_3)
+            
+            # Show patterns for actual data values
+            for group_value in sorted(group3_values):
+                item_frame = ttk.Frame(group3_frame)
+                item_frame.pack(anchor=tk.W, pady=1)
+                
+                # Get pattern for this group value
+                pattern = self._get_group3_pattern(group_value)
+                
+                # Pattern indicator
+                pattern_canvas = tk.Canvas(item_frame, width=15, height=15, highlightthickness=0)
+                pattern_canvas.pack(side=tk.LEFT, padx=(0, 5))
+                pattern_canvas.create_oval(2, 2, 13, 13, fill='#F5F5F5', outline=self.ui_colors['border'])
+                if pattern:
+                    self._draw_legend_pattern(pattern_canvas, pattern, self.ui_colors['border'])
+                
+                ttk.Label(item_frame, text=group_value, font=("TkDefaultFont", 8)).pack(side=tk.LEFT)
+                
+    def _draw_legend_shape(self, canvas, well_type, color):
+        """Draw a small well shape for the legend."""
+        if well_type == 'sample':
+            # Circle for samples
+            canvas.create_oval(3, 3, 17, 12, fill='#F5F5F5', outline=color, width=2)
+        elif well_type == 'neg_cntrl':
+            # Triangle for negative controls
+            points = [10, 3, 5, 12, 15, 12]
+            canvas.create_polygon(points, fill='#F5F5F5', outline=color, width=2)
+        elif well_type == 'pos_cntrl':
+            # Square for positive controls
+            canvas.create_rectangle(4, 4, 16, 11, fill='#F5F5F5', outline=color, width=2)
+        elif well_type == 'unused':
+            # Default circle for unused
+            canvas.create_oval(3, 3, 17, 12, fill='#F5F5F5', outline=color, width=1)
+        else:
+            # Pentagon for other well types
+            center_x = 10
+            center_y = 7.5
+            radius = 6
+            
+            # Create pentagon points for legend
+            import math
+            points = []
+            for i in range(5):
+                angle = i * 2 * math.pi / 5 - math.pi / 2  # Start from top, 72 degrees between points
+                x = center_x + radius * math.cos(angle)
+                y = center_y + radius * math.sin(angle)
+                points.extend([x, y])
+            
+            canvas.create_polygon(points, fill='#F5F5F5', outline=color, width=2)
+            
+    def _draw_legend_symbol(self, canvas, x, y, symbol, color):
+        """Draw a larger, more visible solid symbol for the legend."""
+        size = 6  # Increased from 5 to 6 for better visibility
+        if symbol == 'filled_circle':
+            canvas.create_oval(x-size//2, y-size//2, x+size//2, y+size//2, fill=color, outline=color)
+        elif symbol == 'open_circle':
+            canvas.create_oval(x-size//2, y-size//2, x+size//2, y+size//2, fill="", outline=color, width=2)
+        elif symbol == 'filled_star':
+            # 5-pointed star (filled) for legend
+            import math
+            points = []
+            for i in range(10):  # 5 outer points + 5 inner points
+                angle = i * math.pi / 5  # 36 degrees between points
+                if i % 2 == 0:  # Outer points
+                    radius = size
+                else:  # Inner points
+                    radius = size * 0.4
+                px = x + radius * math.cos(angle - math.pi/2)
+                py = y + radius * math.sin(angle - math.pi/2)
+                points.extend([px, py])
+            canvas.create_polygon(points, fill=color, outline=color)
+        elif symbol == 'open_star':
+            # 5-pointed star (outline only) for legend
+            import math
+            points = []
+            for i in range(10):  # 5 outer points + 5 inner points
+                angle = i * math.pi / 5  # 36 degrees between points
+                if i % 2 == 0:  # Outer points
+                    radius = size
+                else:  # Inner points
+                    radius = size * 0.4
+                px = x + radius * math.cos(angle - math.pi/2)
+                py = y + radius * math.sin(angle - math.pi/2)
+                points.extend([px, py])
+            canvas.create_polygon(points, fill="", outline=color, width=2)
+        elif symbol == 'plus':
+            # Draw plus symbol for BONCAT
+            canvas.create_rectangle(x-size//4, y-size, x+size//4, y+size, fill=color, outline=color)
+            canvas.create_rectangle(x-size, y-size//4, x+size, y+size//4, fill=color, outline=color)
+        elif symbol == 'cross':
+            # Draw X-shaped cross symbol
+            canvas.create_line(x-size, y-size, x+size, y+size, fill=color, width=3)
+            canvas.create_line(x-size, y+size, x+size, y-size, fill=color, width=3)
+            
+    def _draw_legend_pattern(self, canvas, pattern, color):
+        """Draw a small matplotlib-style hatch pattern for the legend."""
+        if pattern == '---':  # Horizontal lines
+            for y in range(4, 12, 2):
+                canvas.create_line(3, y, 12, y, fill=color, width=1)
+        elif pattern == '|||':  # Vertical lines
+            for x in range(4, 12, 2):
+                canvas.create_line(x, 3, x, 12, fill=color, width=1)
+        elif pattern == '///':  # Forward diagonal lines
+            for i in range(-5, 6, 2):
+                canvas.create_line(3+i, 3, 12+i, 12, fill=color, width=1)
+        elif pattern == '\\\\\\':  # Backward diagonal lines
+            for i in range(-5, 6, 2):
+                canvas.create_line(3+i, 12, 12+i, 3, fill=color, width=1)
+        elif pattern == '...':  # Dots
+            for x in range(4, 12, 3):
+                for y in range(4, 12, 3):
+                    canvas.create_oval(x, y, x+1, y+1, fill=color, outline=color)
+        elif pattern == 'ooo':  # Circles
+            for x in range(4, 12, 3):
+                for y in range(4, 12, 3):
+                    canvas.create_oval(x-1, y-1, x+1, y+1, outline=color, width=1)
             
     def update_data(self, fluorescence_data: FluorescenceData):
         """Update with new fluorescence data."""
@@ -539,9 +1161,32 @@ class PlateView(ttk.Frame):
         self._update_plate_display()
         
     def update_layout(self, layout_data: Dict[str, WellInfo]):
-        """Update with new layout data."""
+        """Update with new layout data and auto-check boxes for groups with data."""
         self.layout_data = layout_data
-        self.group_colors.clear()  # Reset color assignments
+        self.group1_colors.clear()  # Reset Group1 color assignments
+        self.group2_symbol_assignments.clear()  # Reset Group2 symbol assignments
+        self.group3_pattern_assignments.clear()  # Reset Group3 pattern assignments
+        
+        # Auto-check boxes for groups that have data in the layout
+        if layout_data:
+            # Check if Group_1 has data
+            has_group1_data = any(well.group_1 and well.group_1.strip()
+                                for well in layout_data.values())
+            if has_group1_data:
+                self.grouping_vars['Group_1'].set(True)
+            
+            # Check if Group_2 has data
+            has_group2_data = any(well.group_2 and well.group_2.strip()
+                                for well in layout_data.values())
+            if has_group2_data:
+                self.grouping_vars['Group_2'].set(True)
+            
+            # Check if Group_3 has data
+            has_group3_data = any(well.group_3 and well.group_3.strip()
+                                for well in layout_data.values())
+            if has_group3_data:
+                self.grouping_vars['Group_3'].set(True)
+        
         self._update_plate_display()
         self._update_legend()
         

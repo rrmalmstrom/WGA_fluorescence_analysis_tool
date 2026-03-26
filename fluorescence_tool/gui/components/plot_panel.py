@@ -44,17 +44,33 @@ class PlotPanel(ttk.Frame):
         self.selected_wells: List[str] = []
         
         # Plot configuration
-        self.show_raw_data = True
+        self.show_raw_data = False  # Changed to False by default
         self.show_fitted_curves = True
         self.show_thresholds = True
-        self.group_by_type = True
+        self.color_by_scheme = 'Type'  # Default color scheme
+        
+        # Fixed color scheme for predetermined types (matching plate view)
+        self.type_colors = {
+            'sample': '#2196F3',      # Blue
+            'neg_cntrl': '#FF9800',   # Orange
+            'pos_cntrl': '#4CAF50',   # Green
+            'unused': '#E0E0E0',      # Light gray
+            'unknown': '#9E9E9E',     # Gray
+        }
+        
+        # Default color for any other well types (matching plate view pentagon shapes)
+        self.default_other_color = '#9C27B0'  # Purple
+        
+        # Dynamic colors for Group1 (avoiding type colors)
+        self.group1_palette = [
+            '#9C27B0', '#E91E63', '#795548', '#607D8B', '#00BCD4',
+            '#8BC34A', '#CDDC39', '#FFC107', '#FF5722', '#3F51B5',
+            '#009688', '#673AB7', '#FF4081', '#536DFE', '#40C4FF'
+        ]
         
         # Color management
         self.well_colors: Dict[str, str] = {}
-        self.color_palette = [
-            '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-            '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
-        ]
+        self.group1_colors: Dict[str, str] = {}
         
         self._setup_ui()
         
@@ -73,7 +89,7 @@ class PlotPanel(ttk.Frame):
         options_frame.pack(fill=tk.X)
         
         # Checkboxes for plot elements
-        self.raw_data_var = tk.BooleanVar(value=True)
+        self.raw_data_var = tk.BooleanVar(value=False)  # Changed to False
         ttk.Checkbutton(
             options_frame,
             text="Raw Data",
@@ -97,13 +113,43 @@ class PlotPanel(ttk.Frame):
             command=self._update_plot_options
         ).pack(side=tk.LEFT, padx=(0, 10))
         
-        self.group_by_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
-            options_frame,
-            text="Group by Type",
-            variable=self.group_by_var,
+        # Color by radio buttons (replacing Group by Type checkbox)
+        color_frame = ttk.LabelFrame(options_frame, text="Color by:", padding=2)
+        color_frame.pack(side=tk.LEFT, padx=(10, 0))
+        
+        self.color_by_var = tk.StringVar(value='Type')  # Default to Type
+        
+        ttk.Radiobutton(
+            color_frame,
+            text="Type",
+            variable=self.color_by_var,
+            value='Type',
             command=self._update_plot_options
-        ).pack(side=tk.LEFT, padx=(0, 10))
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        
+        ttk.Radiobutton(
+            color_frame,
+            text="Group_1",
+            variable=self.color_by_var,
+            value='Group_1',
+            command=self._update_plot_options
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        
+        ttk.Radiobutton(
+            color_frame,
+            text="Group_2",
+            variable=self.color_by_var,
+            value='Group_2',
+            command=self._update_plot_options
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        
+        ttk.Radiobutton(
+            color_frame,
+            text="Group_3",
+            variable=self.color_by_var,
+            value='Group_3',
+            command=self._update_plot_options
+        ).pack(side=tk.LEFT, padx=(0, 5))
         
         # Export controls
         export_frame = ttk.Frame(control_frame)
@@ -160,7 +206,7 @@ class PlotPanel(ttk.Frame):
                 horizontalalignment='center', verticalalignment='center',
                 transform=ax.transAxes, fontsize=12, color='gray')
         
-        ax.set_xlabel('Time (hours)')
+        ax.set_xlabel('Time (minutes)')
         ax.set_ylabel('Fluorescence (RFU)')
         ax.set_title('Fluorescence Time Series')
         ax.grid(True, alpha=0.3)
@@ -168,11 +214,11 @@ class PlotPanel(ttk.Frame):
         self.canvas.draw()
         
     def _update_plot_options(self):
-        """Update plot display based on option checkboxes."""
+        """Update plot display based on option checkboxes and radio buttons."""
         self.show_raw_data = self.raw_data_var.get()
         self.show_fitted_curves = self.fitted_curves_var.get()
         self.show_thresholds = self.thresholds_var.get()
-        self.group_by_type = self.group_by_var.get()
+        self.color_by_scheme = self.color_by_var.get()  # Use radio button value
         
         # Debug output
         print(f"Plot options updated: raw={self.show_raw_data}, fitted={self.show_fitted_curves}, thresholds={self.show_thresholds}")
@@ -218,23 +264,21 @@ class PlotPanel(ttk.Frame):
         # Get time points
         time_points = np.array(self.fluorescence_data.time_points)
         
-        # Group wells by type if requested
-        if self.group_by_type and self.layout_data:
-            well_groups = self._group_wells_by_type()
+        # Group wells by color scheme if layout data is available
+        if self.layout_data:
+            well_groups = self._group_wells_by_color_scheme()
         else:
             well_groups = {'All Wells': self.selected_wells}
             
         # Plot each group
         legend_elements = []
-        color_index = 0
         
         for group_name, wells in well_groups.items():
             if not wells:
                 continue
                 
-            # Get group color
-            group_color = self.color_palette[color_index % len(self.color_palette)]
-            color_index += 1
+            # Get group color using consistent color scheme
+            group_color = self._get_group_plot_color(group_name)
             
             # Plot wells in this group
             for i, well_id in enumerate(wells):
@@ -246,14 +290,14 @@ class PlotPanel(ttk.Frame):
                 
                 # Determine line style and alpha
                 alpha = 0.7 if len(wells) > 1 else 1.0
-                line_style = '-' if i == 0 else '-'  # Could vary for different wells
+                raw_line_style = '--'  # Raw data now uses dashed lines
                 
                 # Plot raw data
                 if self.show_raw_data:
                     line = ax.plot(
                         time_points, fluorescence_values,
                         color=group_color, alpha=alpha, linewidth=1.5,
-                        linestyle=line_style,
+                        linestyle=raw_line_style,
                         label=f"{group_name}" if i == 0 else ""
                     )[0]
                     
@@ -272,7 +316,7 @@ class PlotPanel(ttk.Frame):
                         fitted_line = ax.plot(
                             time_points, fitted_curve,
                             color=group_color, alpha=0.9, linewidth=2,
-                            linestyle='--',
+                            linestyle='-',  # Fitted curves now use solid lines
                             label=f"{group_name} (fitted)" if i == 0 else ""
                         )[0]
                         
@@ -297,7 +341,7 @@ class PlotPanel(ttk.Frame):
                         )
                         
         # Customize plot
-        ax.set_xlabel('Time (hours)', fontsize=12)
+        ax.set_xlabel('Time (minutes)', fontsize=12)
         ax.set_ylabel('Fluorescence (RFU)', fontsize=12)
         ax.set_title(f'Fluorescence Time Series ({len(self.selected_wells)} wells)', fontsize=14)
         ax.grid(True, alpha=0.3)
@@ -334,6 +378,57 @@ class PlotPanel(ttk.Frame):
                 groups['unknown'].append(well_id)
                 
         return groups
+        
+    def _group_wells_by_color_scheme(self) -> Dict[str, List[str]]:
+        """Group selected wells by the current color scheme."""
+        groups = {}
+        
+        for well_id in self.selected_wells:
+            if well_id in self.layout_data:
+                well_info = self.layout_data[well_id]
+                
+                # Get grouping value based on selected color scheme
+                if self.color_by_scheme == 'Type':
+                    group_value = well_info.well_type
+                elif self.color_by_scheme == 'Group_1':
+                    group_value = well_info.group_1 or 'No Group_1'
+                elif self.color_by_scheme == 'Group_2':
+                    group_value = well_info.group_2 or 'No Group_2'
+                elif self.color_by_scheme == 'Group_3':
+                    group_value = well_info.group_3 or 'No Group_3'
+                else:
+                    group_value = 'unknown'
+                    
+                if group_value not in groups:
+                    groups[group_value] = []
+                groups[group_value].append(well_id)
+            else:
+                # Unknown well
+                if 'unknown' not in groups:
+                    groups['unknown'] = []
+                groups['unknown'].append(well_id)
+                
+        return groups
+        
+    def _get_group_plot_color(self, group_name: str) -> str:
+        """Get consistent color for a group in plots based on current color scheme."""
+        if group_name == 'All Wells':
+            return '#2196F3'  # Default blue for mixed selection
+            
+        # Handle colors based on current color scheme
+        if self.color_by_scheme == 'Type':
+            # Use fixed colors for predetermined types
+            if group_name in self.type_colors:
+                return self.type_colors[group_name]
+            else:
+                # Use purple for other types (like OTHER)
+                return self.default_other_color
+        else:
+            # For Group_1, Group_2, Group_3 - use dynamic color assignment
+            if group_name not in self.group1_colors:
+                color_index = len(self.group1_colors) % len(self.group1_palette)
+                self.group1_colors[group_name] = self.group1_palette[color_index]
+            return self.group1_colors[group_name]
         
     def _generate_colors(self, n_colors: int) -> List[str]:
         """Generate n distinct colors using HSV color space."""
