@@ -8,10 +8,14 @@ CSV data files, PDF plots, and comprehensive analysis reports.
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
+import matplotlib.pyplot as plt
+import matplotlib.backends.backend_pdf as pdf_backend
+from matplotlib.figure import Figure
+import colorsys
 
-from .models import FluorescenceData, WellInfo
+from .models import FluorescenceData, WellInfo, PassFailThresholds
 
 
 class ExportManager:
@@ -26,13 +30,19 @@ class ExportManager:
         """Initialize the export manager."""
         pass
         
-    def export_analysis_data(self, analysis_results: Dict[str, Any], filename: str):
+    def export_analysis_data(self, analysis_results: Dict[str, Any], filename: str,
+                            pass_fail_results: Optional[Dict[str, Any]] = None,
+                            include_unused: bool = False):
         """
-        Export comprehensive analysis data to CSV.
+        Export comprehensive analysis data to CSV in the specified format.
+        
+        Format: Layout columns | Delta_Fluorescence | CP | Pass_Fail | Raw fluorescence data | Curve fit stats
         
         Args:
             analysis_results: Dictionary containing analysis results
             filename: Output CSV filename
+            pass_fail_results: Optional pass/fail analysis results
+            include_unused: Whether to include wells marked as 'unused' (default: False)
         """
         # Extract data components
         fluorescence_data = analysis_results.get('fluorescence_data')
@@ -45,6 +55,12 @@ class ExportManager:
         # Create layout lookup
         layout_dict = {well.well_id: well for well in layout_data} if layout_data else {}
         
+        # Create pass/fail lookup
+        pass_fail_dict = {}
+        if pass_fail_results and 'well_results' in pass_fail_results:
+            for well_id, result in pass_fail_results['well_results'].items():
+                pass_fail_dict[well_id] = result.get('overall_result', 'N/A')
+        
         # Prepare export data
         export_rows = []
         
@@ -52,61 +68,140 @@ class ExportManager:
             well_index = fluorescence_data.wells.index(well_id)
             fluorescence_values = fluorescence_data.measurements[well_index, :]
             
-            # Base row data
-            row_data = {
-                'Well': well_id,
-                'Plate_ID': '',
-                'Sample': '',
-                'Type': '',
-                'Cell_Count': '',
-                'Group_1': '',
-                'Group_2': '',
-                'Group_3': ''
-            }
+            # Check if we should skip unused wells
+            if not include_unused and well_id in layout_dict:
+                well_info = layout_dict[well_id]
+                if well_info.well_type == 'unused':
+                    continue  # Skip this well
             
-            # Add layout information if available
+            # Start with layout information
+            row_data = {}
+            
+            # Extract row and column from well_id for sorting (e.g., A1 -> A, 1)
+            if len(well_id) >= 2:
+                well_row = well_id[0]  # First character (A, B, C, etc.)
+                try:
+                    well_col = int(well_id[1:])  # Remaining characters as number
+                except ValueError:
+                    well_col = 0
+            else:
+                well_row = ''
+                well_col = 0
+            
             if well_id in layout_dict:
                 well_info = layout_dict[well_id]
                 row_data.update({
-                    'Plate_ID': well_info.plate_id,
-                    'Sample': well_info.sample,
-                    'Type': well_info.well_type,
+                    'Plate_ID': well_info.plate_id or '',
+                    'Well': well_id,
+                    'Type': well_info.well_type or '',
                     'Cell_Count': well_info.cell_count or '',
                     'Group_1': well_info.group_1 or '',
                     'Group_2': well_info.group_2 or '',
-                    'Group_3': well_info.group_3 or ''
+                    'Group_3': well_info.group_3 or '',
+                    'Sample': well_info.sample or '',
+                    # Add sorting columns temporarily
+                    '_Well_Row': well_row,
+                    '_Well_Col': well_col
                 })
-                
-            # Add curve fitting results if available
-            if well_id in curve_fits:
-                fit_result = curve_fits[well_id]
-                row_data.update({
-                    'Crossing_Point': getattr(fit_result, 'crossing_point', ''),
-                    'Threshold_Value': getattr(fit_result, 'threshold_value', ''),
-                    'Delta_Fluorescence': getattr(fit_result, 'fluorescence_change', ''),
-                    'R_Squared': getattr(fit_result, 'r_squared', ''),
-                    'Fit_Quality': getattr(fit_result, 'fit_quality', ''),
-                })
-                
-                # Add sigmoid parameters if available
-                if hasattr(fit_result, 'fitted_params') and fit_result.fitted_params is not None:
-                    params = fit_result.fitted_params
-                    if len(params) >= 5:
-                        row_data.update({
-                            'Sigmoid_A': params[0],
-                            'Sigmoid_B': params[1],
-                            'Sigmoid_C': params[2],
-                            'Sigmoid_D': params[3],
-                            'Sigmoid_E': params[4]
-                        })
             else:
-                # Add empty analysis columns
+                # Default layout columns if no layout data
                 row_data.update({
-                    'Crossing_Point': '',
-                    'Threshold_Value': '',
-                    'Delta_Fluorescence': '',
-                    'R_Squared': '',
-                    'Fit_Quality': '',
+                    'Plate_ID': '',
+                    'Well': well_id,
+                    'Type': '',
+                    'Cell_Count': '',
+                    'Group_1': '',
+                    'Group_2': '',
+                    'Group_3': '',
+                    'Sample': '',
+                    # Add sorting columns temporarily
+                    '_Well_Row': well_row,
+                    '_Well_Col': well_col
+                })
+            
+            # Add analysis results
+            delta_fluor = ''
+            crossing_point = ''
+            r_squared = ''
+            fit_quality = ''
+            
+            if well_id in curve_fits:
+                fit_data = curve_fits[well_id]
+                
+                # Handle different result structures
+                if isinstance(fit_data, dict):
+                    # New structure from main_window analysis
+                    threshold_result = fit_data.get('threshold_result')
+                    curve_result = fit_data.get('curve_result')
+                    
+                    if threshold_result and hasattr(threshold_result, 'fluorescence_change'):
+                        delta_fluor = threshold_result.fluorescence_change
+                    if threshold_result and hasattr(threshold_result, 'crossing_time'):
+                        crossing_point = threshold_result.crossing_time
+                    if curve_result and hasattr(curve_result, 'r_squared'):
+                        r_squared = curve_result.r_squared
+                    if curve_result and hasattr(curve_result, 'success'):
+                        fit_quality = 'Good' if curve_result.success else 'Poor'
+                else:
+                    # Legacy structure - direct fit result object
+                    if hasattr(fit_data, 'fluorescence_change'):
+                        delta_fluor = fit_data.fluorescence_change
+                    if hasattr(fit_data, 'crossing_point'):
+                        crossing_point = fit_data.crossing_point
+                    if hasattr(fit_data, 'r_squared'):
+                        r_squared = fit_data.r_squared
+                    if hasattr(fit_data, 'fit_quality'):
+                        fit_quality = fit_data.fit_quality
+            
+            # Add analysis columns
+            row_data.update({
+                'Delta_Fluorescence': delta_fluor,
+                'Crossing_Point': crossing_point,
+                'Pass_Fail': pass_fail_dict.get(well_id, 'N/A')
+            })
+            
+            # Add raw fluorescence data (one column per time point)
+            for i, time_point in enumerate(fluorescence_data.time_points):
+                # Use time point as column name for clarity
+                row_data[f'T_{time_point:.2f}h'] = fluorescence_values[i]
+            
+            # Add curve fitting statistics
+            row_data.update({
+                'R_Squared': r_squared,
+                'Fit_Quality': fit_quality
+            })
+            
+            # Add sigmoid parameters if available
+            if well_id in curve_fits:
+                fit_data = curve_fits[well_id]
+                params = None
+                
+                if isinstance(fit_data, dict):
+                    curve_result = fit_data.get('curve_result')
+                    if curve_result and hasattr(curve_result, 'parameters'):
+                        params = curve_result.parameters
+                else:
+                    if hasattr(fit_data, 'fitted_params'):
+                        params = fit_data.fitted_params
+                
+                if params and len(params) >= 5:
+                    row_data.update({
+                        'Sigmoid_A': params[0],
+                        'Sigmoid_B': params[1],
+                        'Sigmoid_C': params[2],
+                        'Sigmoid_D': params[3],
+                        'Sigmoid_E': params[4]
+                    })
+                else:
+                    row_data.update({
+                        'Sigmoid_A': '',
+                        'Sigmoid_B': '',
+                        'Sigmoid_C': '',
+                        'Sigmoid_D': '',
+                        'Sigmoid_E': ''
+                    })
+            else:
+                row_data.update({
                     'Sigmoid_A': '',
                     'Sigmoid_B': '',
                     'Sigmoid_C': '',
@@ -114,22 +209,21 @@ class ExportManager:
                     'Sigmoid_E': ''
                 })
                 
-            # Add raw fluorescence data
-            for i, time_point in enumerate(fluorescence_data.time_points):
-                row_data[f'Raw_T{i:03d}_{time_point:.2f}h'] = fluorescence_values[i]
-                
-            # Add fitted curve data if available
-            if well_id in curve_fits:
-                fit_result = curve_fits[well_id]
-                if hasattr(fit_result, 'fitted_curve') and fit_result.fitted_curve is not None:
-                    for i, fitted_value in enumerate(fit_result.fitted_curve):
-                        time_point = fluorescence_data.time_points[i]
-                        row_data[f'Fitted_T{i:03d}_{time_point:.2f}h'] = fitted_value
-                        
             export_rows.append(row_data)
             
-        # Create DataFrame and save
+        # Create DataFrame
         df = pd.DataFrame(export_rows)
+        
+        # Sort by column number first, then by row letter
+        if '_Well_Col' in df.columns and '_Well_Row' in df.columns:
+            # Convert well column to numeric for proper sorting
+            df['_Well_Col'] = pd.to_numeric(df['_Well_Col'], errors='coerce').fillna(0)
+            # Sort by column number first, then by row letter
+            df = df.sort_values(['_Well_Col', '_Well_Row'], ascending=[True, True])
+            # Remove the temporary sorting columns
+            df = df.drop(columns=['_Well_Row', '_Well_Col'])
+        
+        # Save to CSV
         df.to_csv(filename, index=False)
         
     def export_statistical_summary(self, analysis_results: Dict[str, Any], filename: str):

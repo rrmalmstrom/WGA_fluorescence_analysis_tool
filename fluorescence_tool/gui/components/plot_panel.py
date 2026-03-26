@@ -598,46 +598,47 @@ class PlotPanel(ttk.Frame):
                 tk.messagebox.showerror("Error", f"Failed to export plot:\\n{str(e)}")
                 
     def _export_data(self):
-        """Export plot data to CSV file."""
-        if not self.selected_wells or not self.fluorescence_data:
-            tk.messagebox.showwarning("Warning", "No data to export")
+        """Export comprehensive analysis data to CSV file using the new format."""
+        if not self.analysis_results:
+            tk.messagebox.showwarning("Warning", "No analysis results to export")
             return
-            
+        
+        # Ask user if they want to include unused wells (default: No)
+        include_unused = tk.messagebox.askyesno(
+            "Export Options",
+            "Include wells marked as 'unused' in the export?\n\n" +
+            "• Yes: Export all wells including unused ones\n" +
+            "• No: Export only analyzed wells (recommended)",
+            default=tk.messagebox.NO
+        )
+        
         from tkinter import filedialog
-        import pandas as pd
         
         filename = filedialog.asksaveasfilename(
-            title="Export Plot Data",
+            title="Export Analysis Data",
             defaultextension=".csv",
             filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
         )
         
         if filename:
             try:
-                # Prepare data for export
-                time_points = self.fluorescence_data.time_points
-                export_data = {'Time_hours': time_points}
+                # Recalculate pass/fail results with current threshold values before export
+                self._update_pass_fail_analysis()
                 
-                # Add raw data for selected wells
-                for well_id in self.selected_wells:
-                    if well_id in self.fluorescence_data.wells:
-                        well_index = self.fluorescence_data.wells.index(well_id)
-                        fluorescence_values = self.fluorescence_data.measurements[well_index, :]
-                        export_data[f'{well_id}_raw'] = fluorescence_values
-                        
-                        # Add fitted data if available
-                        if ('curve_fits' in self.analysis_results and
-                            well_id in self.analysis_results['curve_fits']):
-                            well_results = self.analysis_results['curve_fits'][well_id]
-                            fitted_curve = well_results.get('fitted_curve')
-                            if fitted_curve is not None:
-                                export_data[f'{well_id}_fitted'] = fitted_curve
-                                
-                # Create DataFrame and save
-                df = pd.DataFrame(export_data)
-                df.to_csv(filename, index=False)
+                # Use the comprehensive export manager with the new format
+                from ...core.export_manager import ExportManager
+                export_manager = ExportManager()
                 
-                self.main_window.update_status(f"Plot data exported to {filename}")
+                # Export with the latest pass/fail results and unused well preference
+                export_manager.export_analysis_data(
+                    self.analysis_results,
+                    filename,
+                    pass_fail_results=self.pass_fail_results,
+                    include_unused=include_unused
+                )
+                
+                wells_exported = "all wells" if include_unused else "analyzed wells only"
+                self.main_window.update_status(f"Analysis data exported to {filename} ({wells_exported})")
             except Exception as e:
                 tk.messagebox.showerror("Error", f"Failed to export data:\\n{str(e)}")
                 

@@ -77,9 +77,6 @@ class MainWindow:
         file_menu.add_command(label="Load Data File...", command=self._load_data_file)
         file_menu.add_command(label="Load Layout File...", command=self._load_layout_file)
         file_menu.add_separator()
-        file_menu.add_command(label="Export Plot...", command=self._export_plot)
-        file_menu.add_command(label="Export Data...", command=self._export_data)
-        file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.quit)
         
         # Analysis menu
@@ -151,7 +148,6 @@ class MainWindow:
         # Keyboard shortcuts
         self.root.bind('<Control-o>', lambda e: self._load_data_file())
         self.root.bind('<Control-l>', lambda e: self._load_layout_file())
-        self.root.bind('<Control-s>', lambda e: self._export_data())
         self.root.bind('<Control-q>', lambda e: self.root.quit())
         
     def _load_data_file(self):
@@ -420,46 +416,6 @@ class MainWindow:
         self.plot_panel.clear_plots()
         self.update_status("Selection cleared")
         
-    def _export_plot(self):
-        """Export current plot as PDF."""
-        if not self.analysis_results:
-            messagebox.showwarning("Warning", "No analysis results to export")
-            return
-            
-        filename = filedialog.asksaveasfilename(
-            title="Export Plot",
-            defaultextension=".pdf",
-            filetypes=[("PDF files", "*.pdf"), ("PNG files", "*.png"), ("All files", "*.*")]
-        )
-        
-        if filename:
-            try:
-                self.plot_panel.export_plot(filename)
-                self.update_status(f"Plot exported to {filename}")
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to export plot:\\n{str(e)}")
-                
-    def _export_data(self):
-        """Export analysis data as CSV."""
-        if not self.analysis_results:
-            messagebox.showwarning("Warning", "No analysis results to export")
-            return
-            
-        filename = filedialog.asksaveasfilename(
-            title="Export Data",
-            defaultextension=".csv",
-            filetypes=[("CSV files", "*.csv")]
-        )
-        
-        if filename:
-            try:
-                # Use export manager to save data
-                from ..core.export_manager import ExportManager
-                export_manager = ExportManager()
-                export_manager.export_analysis_data(self.analysis_results, filename)
-                self.update_status(f"Data exported to {filename}")
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to export data:\\n{str(e)}")
                 
     def _show_about(self):
         """Show about dialog."""
