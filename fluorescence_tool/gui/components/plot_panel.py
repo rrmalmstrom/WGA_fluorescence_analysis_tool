@@ -15,7 +15,8 @@ import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
 import colorsys
 
-from ...core.models import FluorescenceData, WellInfo, CurveFitResult
+from ...core.models import FluorescenceData, WellInfo, PassFailThresholds
+from ...algorithms.pass_fail_analysis import PassFailAnalyzer
 
 
 class PlotPanel(ttk.Frame):
@@ -71,6 +72,11 @@ class PlotPanel(ttk.Frame):
         # Color management
         self.well_colors: Dict[str, str] = {}
         self.group1_colors: Dict[str, str] = {}
+        
+        # Pass/fail analysis
+        self.pass_fail_thresholds = PassFailThresholds()
+        self.pass_fail_analyzer = PassFailAnalyzer(self.pass_fail_thresholds)
+        self.pass_fail_results: Dict[str, Any] = {}
         
         self._setup_ui()
         
@@ -151,6 +157,60 @@ class PlotPanel(ttk.Frame):
             command=self._update_plot_options
         ).pack(side=tk.LEFT, padx=(0, 5))
         
+        # Pass/Fail threshold controls
+        threshold_frame = ttk.LabelFrame(control_frame, text="Pass/Fail Thresholds", padding=5)
+        threshold_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        # CP threshold control
+        cp_frame = ttk.Frame(threshold_frame)
+        cp_frame.pack(side=tk.LEFT, padx=(0, 15))
+        
+        ttk.Label(cp_frame, text="CP Threshold (min):").pack(side=tk.LEFT, padx=(0, 5))
+        self.cp_threshold_var = tk.StringVar(value=str(self.pass_fail_thresholds.cp_threshold))
+        self.cp_threshold_entry = ttk.Entry(
+            cp_frame,
+            textvariable=self.cp_threshold_var,
+            width=8,
+            validate='key',
+            validatecommand=(self.register(self._validate_float), '%P')
+        )
+        self.cp_threshold_entry.pack(side=tk.LEFT, padx=(0, 5))
+        self.cp_threshold_entry.bind('<KeyRelease>', self._on_threshold_change)
+        
+        # Fluorescence change threshold control
+        fluor_frame = ttk.Frame(threshold_frame)
+        fluor_frame.pack(side=tk.LEFT, padx=(0, 15))
+        
+        ttk.Label(fluor_frame, text="Fluorescence Threshold:").pack(side=tk.LEFT, padx=(0, 5))
+        self.fluor_threshold_var = tk.StringVar(value=str(self.pass_fail_thresholds.fluorescence_change_threshold))
+        self.fluor_threshold_entry = ttk.Entry(
+            fluor_frame,
+            textvariable=self.fluor_threshold_var,
+            width=8,
+            validate='key',
+            validatecommand=(self.register(self._validate_float), '%P')
+        )
+        self.fluor_threshold_entry.pack(side=tk.LEFT, padx=(0, 5))
+        self.fluor_threshold_entry.bind('<KeyRelease>', self._on_threshold_change)
+        
+        # Enable/disable checkbox
+        self.pass_fail_enabled_var = tk.BooleanVar(value=self.pass_fail_thresholds.enabled)
+        ttk.Checkbutton(
+            threshold_frame,
+            text="Enable Pass/Fail",
+            variable=self.pass_fail_enabled_var,
+            command=self._on_threshold_change
+        ).pack(side=tk.LEFT, padx=(15, 0))
+        
+        # Pass/fail summary label
+        self.pass_fail_summary_var = tk.StringVar(value="No analysis results")
+        self.pass_fail_summary_label = ttk.Label(
+            threshold_frame,
+            textvariable=self.pass_fail_summary_var,
+            foreground="blue"
+        )
+        self.pass_fail_summary_label.pack(side=tk.LEFT, padx=(15, 0))
+        
         # Export controls
         export_frame = ttk.Frame(control_frame)
         export_frame.pack(fill=tk.X, pady=(5, 0))
@@ -228,6 +288,62 @@ class PlotPanel(ttk.Frame):
             self._plot_selected_wells()
         else:
             print(f"No replot: selected_wells={len(self.selected_wells) if self.selected_wells else 0}, analysis_results={bool(self.analysis_results)}")
+    
+    def _validate_float(self, value):
+        """Validate that input is a valid float."""
+        if value == "":
+            return True
+        try:
+            float(value)
+            return True
+        except ValueError:
+            return False
+    
+    def _on_threshold_change(self, event=None):
+        """Handle changes to pass/fail threshold values."""
+        try:
+            # Get current values from GUI
+            cp_threshold = float(self.cp_threshold_var.get()) if self.cp_threshold_var.get() else 400.0
+            fluor_threshold = float(self.fluor_threshold_var.get()) if self.fluor_threshold_var.get() else 500.0
+            enabled = self.pass_fail_enabled_var.get()
+            
+            # Update thresholds
+            self.pass_fail_thresholds = PassFailThresholds(
+                cp_threshold=cp_threshold,
+                fluorescence_change_threshold=fluor_threshold,
+                enabled=enabled
+            )
+            
+            # Update analyzer
+            self.pass_fail_analyzer.update_thresholds(self.pass_fail_thresholds)
+            
+            # Recalculate pass/fail results if we have analysis data
+            if self.analysis_results:
+                self._update_pass_fail_analysis()
+                
+        except ValueError:
+            # Invalid input, ignore for now
+            pass
+    
+    def _update_pass_fail_analysis(self):
+        """Update pass/fail analysis results and notify main window."""
+        if not self.analysis_results:
+            return
+            
+        # Calculate pass/fail results
+        self.pass_fail_results = self.pass_fail_analyzer.analyze_all_wells(self.analysis_results)
+        
+        # Update summary display
+        summary_stats = self.pass_fail_analyzer.get_summary_statistics(self.pass_fail_results)
+        if summary_stats['analyzed_wells'] > 0:
+            summary_text = f"Pass/Fail: {summary_stats['passed_wells']}/{summary_stats['analyzed_wells']} ({summary_stats['pass_rate']:.1f}%)"
+        else:
+            summary_text = "No wells analyzed"
+        self.pass_fail_summary_var.set(summary_text)
+        
+        # Notify main window to update plate view
+        if hasattr(self.main_window, 'update_pass_fail_results'):
+            self.main_window.update_pass_fail_results(self.pass_fail_results)
             
     def update_analysis_results(self, analysis_results: Dict[str, Any]):
         """Update with new analysis results."""
@@ -240,6 +356,9 @@ class PlotPanel(ttk.Frame):
             self.layout_data = {well.well_id: well for well in analysis_results['layout_data']}
             
         self.plot_info_var.set("Analysis completed - select wells to view plots")
+        
+        # Trigger pass/fail analysis
+        self._update_pass_fail_analysis()
         
     def update_selected_wells(self, selected_wells: List[str]):
         """Update plot with newly selected wells."""

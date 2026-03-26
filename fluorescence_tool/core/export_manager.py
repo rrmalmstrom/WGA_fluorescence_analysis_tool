@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from .models import FluorescenceData, WellInfo, CurveFitResult
+from .models import FluorescenceData, WellInfo
 
 
 class ExportManager:
@@ -83,7 +83,7 @@ class ExportManager:
                 row_data.update({
                     'Crossing_Point': getattr(fit_result, 'crossing_point', ''),
                     'Threshold_Value': getattr(fit_result, 'threshold_value', ''),
-                    'Delta_Fluorescence': getattr(fit_result, 'delta_fluorescence', ''),
+                    'Delta_Fluorescence': getattr(fit_result, 'fluorescence_change', ''),
                     'R_Squared': getattr(fit_result, 'r_squared', ''),
                     'Fit_Quality': getattr(fit_result, 'fit_quality', ''),
                 })
@@ -181,8 +181,8 @@ class ExportManager:
                     
                     if hasattr(fit_result, 'crossing_point') and fit_result.crossing_point is not None:
                         crossing_points.append(fit_result.crossing_point)
-                    if hasattr(fit_result, 'delta_fluorescence') and fit_result.delta_fluorescence is not None:
-                        delta_fluors.append(fit_result.delta_fluorescence)
+                    if hasattr(fit_result, 'fluorescence_change') and fit_result.fluorescence_change is not None:
+                        delta_fluors.append(fit_result.fluorescence_change)
                     if hasattr(fit_result, 'r_squared') and fit_result.r_squared is not None:
                         r_squareds.append(fit_result.r_squared)
                         

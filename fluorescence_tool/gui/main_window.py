@@ -50,6 +50,7 @@ class MainWindow:
         self.layout_data: Dict[str, WellInfo] = {}
         self.analysis_results: Dict[str, Any] = {}
         self.selected_wells: List[str] = []
+        self.pass_fail_results: Dict[str, Any] = {}
         
         # Initialize parsers and analysis pipeline
         self.bmg_parser = BMGOmega3Parser()
@@ -497,6 +498,14 @@ Version: 1.0.0"""
         else:
             self.plot_panel.clear_plots()
             self.update_status("No wells selected")
+    
+    def update_pass_fail_results(self, pass_fail_results: Dict[str, Any]):
+        """Handle pass/fail results updates from plot panel."""
+        self.pass_fail_results = pass_fail_results
+        
+        # Update plate view with pass/fail results
+        if hasattr(self.plate_view, 'update_pass_fail_results'):
+            self.plate_view.update_pass_fail_results(pass_fail_results)
             
     def run(self):
         """Start the application main loop."""

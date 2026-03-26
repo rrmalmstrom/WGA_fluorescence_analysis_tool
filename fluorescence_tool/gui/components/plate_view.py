@@ -62,6 +62,9 @@ class PlateView(ttk.Frame):
         self.drag_start: Optional[Tuple[int, int]] = None
         self.drag_rect: Optional[int] = None
         
+        # Pass/fail results
+        self.pass_fail_results: Dict[str, Any] = {}
+        
         # Fixed color scheme for predetermined types
         self.type_colors = {
             'sample': '#2196F3',      # Blue (outline)
@@ -103,9 +106,12 @@ class PlateView(ttk.Frame):
         
         # UI colors
         self.ui_colors = {
-            'selected': '#F44336',    # Red
+            'selected': '#F44336',    # Red (legacy - no longer used)
             'border': '#333333',      # Dark gray
-            'background': '#FFFFFF'   # White
+            'background': '#FFFFFF',  # White
+            'pass': '#4CAF50',        # Green for pass
+            'fail': '#F44336',        # Red for fail
+            'no_analysis': '#9E9E9E'  # Gray for no analysis
         }
         
         # Grouping state and color assignments
@@ -398,14 +404,17 @@ class PlateView(ttk.Frame):
             )
             
     def _draw_selection_indicator(self, well_id: str, pos: WellPosition, well_type: str):
-        """Draw selection indicator matching the well shape."""
+        """Draw selection indicator matching the well shape with pass/fail color."""
+        # Get pass/fail color for this well
+        selection_color = self._get_selection_color(well_id)
+        
         if well_type == 'sample' or well_type == 'unused' or well_type == 'unknown':
             # Circular selection for circular wells
             self.canvas.create_oval(
                 pos.x - 3, pos.y - 3,
                 pos.x + pos.width + 3, pos.y + pos.height + 3,
                 fill="",
-                outline=self.ui_colors['selected'],
+                outline=selection_color,
                 width=3,
                 tags=(f"selection_{well_id}", "selection")
             )
@@ -423,7 +432,7 @@ class PlateView(ttk.Frame):
             self.canvas.create_polygon(
                 points,
                 fill="",
-                outline=self.ui_colors['selected'],
+                outline=selection_color,
                 width=3,
                 tags=(f"selection_{well_id}", "selection")
             )
@@ -433,7 +442,7 @@ class PlateView(ttk.Frame):
                 pos.x - 3, pos.y - 3,
                 pos.x + pos.width + 3, pos.y + pos.height + 3,
                 fill="",
-                outline=self.ui_colors['selected'],
+                outline=selection_color,
                 width=3,
                 tags=(f"selection_{well_id}", "selection")
             )
@@ -455,10 +464,22 @@ class PlateView(ttk.Frame):
             self.canvas.create_polygon(
                 points,
                 fill="",
-                outline=self.ui_colors['selected'],
+                outline=selection_color,
                 width=3,
                 tags=(f"selection_{well_id}", "selection")
             )
+    
+    def _get_selection_color(self, well_id: str) -> str:
+        """Get the selection border color based on pass/fail status."""
+        if well_id in self.pass_fail_results:
+            result = self.pass_fail_results[well_id]
+            if result.analysis_available:
+                return self.ui_colors['pass'] if result.passed else self.ui_colors['fail']
+            else:
+                return self.ui_colors['no_analysis']
+        else:
+            # No pass/fail data available
+            return self.ui_colors['no_analysis']
             
     def _get_well_visual_properties(self, well_id: str) -> tuple:
         """Get visual properties (fill_color, outline_color, symbol, pattern) for a well."""
@@ -1053,6 +1074,38 @@ class PlateView(ttk.Frame):
                     self._draw_legend_pattern(pattern_canvas, pattern, self.ui_colors['border'])
                 
                 ttk.Label(item_frame, text=group_value, font=("TkDefaultFont", 8)).pack(side=tk.LEFT)
+        
+        # Pass/Fail legend (selection colors) - only show if we have pass/fail results
+        if self.pass_fail_results:
+            passfail_frame = ttk.LabelFrame(legend_frame, text="Selection Colors (Pass/Fail)", padding=5)
+            passfail_frame.pack(side=tk.LEFT, padx=(0, 10), fill=tk.Y)
+            
+            # Pass indicator
+            pass_item_frame = ttk.Frame(passfail_frame)
+            pass_item_frame.pack(anchor=tk.W, pady=1)
+            
+            pass_canvas = tk.Canvas(pass_item_frame, width=15, height=15, highlightthickness=0)
+            pass_canvas.pack(side=tk.LEFT, padx=(0, 5))
+            pass_canvas.create_oval(2, 2, 13, 13, fill='', outline=self.ui_colors['pass'], width=2)
+            ttk.Label(pass_item_frame, text="Pass", font=("TkDefaultFont", 8)).pack(side=tk.LEFT)
+            
+            # Fail indicator
+            fail_item_frame = ttk.Frame(passfail_frame)
+            fail_item_frame.pack(anchor=tk.W, pady=1)
+            
+            fail_canvas = tk.Canvas(fail_item_frame, width=15, height=15, highlightthickness=0)
+            fail_canvas.pack(side=tk.LEFT, padx=(0, 5))
+            fail_canvas.create_oval(2, 2, 13, 13, fill='', outline=self.ui_colors['fail'], width=2)
+            ttk.Label(fail_item_frame, text="Fail", font=("TkDefaultFont", 8)).pack(side=tk.LEFT)
+            
+            # No analysis indicator
+            no_analysis_item_frame = ttk.Frame(passfail_frame)
+            no_analysis_item_frame.pack(anchor=tk.W, pady=1)
+            
+            no_analysis_canvas = tk.Canvas(no_analysis_item_frame, width=15, height=15, highlightthickness=0)
+            no_analysis_canvas.pack(side=tk.LEFT, padx=(0, 5))
+            no_analysis_canvas.create_oval(2, 2, 13, 13, fill='', outline=self.ui_colors['no_analysis'], width=2)
+            ttk.Label(no_analysis_item_frame, text="No Analysis", font=("TkDefaultFont", 8)).pack(side=tk.LEFT)
                 
     def _draw_legend_shape(self, canvas, well_type, color):
         """Draw a small well shape for the legend."""
@@ -1197,3 +1250,25 @@ class PlateView(ttk.Frame):
     def get_selected_wells(self) -> List[str]:
         """Get list of currently selected wells."""
         return list(self.selected_wells)
+    
+    def update_pass_fail_results(self, pass_fail_results: Dict[str, Any]):
+        """Update with new pass/fail results and refresh visualization."""
+        self.pass_fail_results = pass_fail_results
+        
+        # Redraw selected wells to show new pass/fail colors
+        for well_id in self.selected_wells:
+            if well_id in self.well_positions:
+                pos = self.well_positions[well_id]
+                
+                # Remove existing selection graphics
+                self.canvas.delete(f"selection_{well_id}")
+                
+                # Redraw selection with new pass/fail color
+                well_type = 'unknown'
+                if well_id in self.layout_data:
+                    well_type = self.layout_data[well_id].well_type
+                
+                self._draw_selection_indicator(well_id, pos, well_type)
+        
+        # Update legend to include pass/fail information
+        self._update_legend()

@@ -59,19 +59,38 @@ class WellInfo:
 
 
 @dataclass
-class CurveFitResult:
+class PassFailThresholds:
     """
-    Curve fitting analysis results.
+    Pass/fail threshold criteria for analysis results.
     
-    Contains the results of 5-parameter sigmoid curve fitting including
-    fitted parameters, quality metrics, and derived values.
+    Defines the criteria for determining whether a well passes or fails
+    based on crossing point (CP) and fluorescence change values.
+    """
+    cp_threshold: float = 400.0        # CP threshold in minutes (below = PASS)
+    fluorescence_change_threshold: float = 500.0  # Fluorescence change threshold (above = PASS)
+    enabled: bool = True               # Whether pass/fail analysis is enabled
+    
+    def __post_init__(self):
+        """Validate threshold values."""
+        if self.cp_threshold <= 0:
+            raise ValueError("CP threshold must be positive")
+        if self.fluorescence_change_threshold <= 0:
+            raise ValueError("Fluorescence change threshold must be positive")
+
+
+@dataclass
+class PassFailResult:
+    """
+    Pass/fail analysis result for a single well.
+    
+    Contains the pass/fail determination based on threshold criteria
+    and the values used for the determination.
     """
     well_id: str
-    fitted_params: np.ndarray       # Sigmoid parameters [a, b, c, d, e]
-    fitted_curve: np.ndarray        # Fitted y-values
-    r_squared: float                # Goodness of fit
-    crossing_point: float           # Time at threshold crossing
-    threshold_value: float          # Fluorescence threshold
-    delta_fluorescence: float       # End - Start fluorescence
-    fit_quality: str               # "excellent", "good", "fair", "poor", "failed"
-    convergence_info: Dict[str, Any] # Optimization details
+    passed: bool                       # True if well passed, False if failed
+    cp_value: Optional[float]          # Crossing point value used (minutes)
+    fluorescence_change_value: Optional[float] # Fluorescence change value used
+    cp_passed: bool                    # Whether CP criterion was met (CP < threshold)
+    fluorescence_change_passed: bool   # Whether fluorescence change criterion was met (change > threshold)
+    analysis_available: bool           # Whether analysis results were available
+    failure_reason: Optional[str]      # Reason for failure if applicable
