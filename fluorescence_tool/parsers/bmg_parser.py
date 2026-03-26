@@ -105,7 +105,7 @@ class BMGOmega3Parser:
         return metadata
     
     def _parse_time_headers(self, time_header_line: str) -> List[float]:
-        """Parse time point headers into decimal hours."""
+        """Parse time point headers into minutes (converted from hours for compatibility)."""
         # Split by comma and clean up
         parts = [part.strip() for part in time_header_line.split(',')]
         
@@ -115,12 +115,13 @@ class BMGOmega3Parser:
             if part and part.lower() != 'time':
                 time_headers.append(part)
         
-        # Convert time strings to decimal hours
+        # Convert time strings to decimal hours, then to minutes for compatibility
         time_points = []
         for header in time_headers:
             try:
                 time_hours = self._parse_time_string(header)
-                time_points.append(time_hours)
+                time_minutes = time_hours * 60.0  # Convert to minutes to match original script
+                time_points.append(time_minutes)
             except ValueError as e:
                 # Skip invalid time headers but warn
                 print(f"Warning: Skipping invalid time header '{header}': {e}")
