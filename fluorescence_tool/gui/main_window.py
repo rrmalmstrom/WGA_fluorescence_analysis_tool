@@ -96,9 +96,63 @@ class MainWindow:
         main_frame = ttk.Frame(self.root)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        # File loading panel at top
-        self.file_loader = FileLoader(main_frame, self)
-        self.file_loader.pack(fill=tk.X, pady=(0, 5))
+        # Top frame for file loader and quit button
+        top_frame = ttk.Frame(main_frame)
+        top_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        # File loading panel at top left
+        self.file_loader = FileLoader(top_frame, self)
+        self.file_loader.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Quit button at top right - always visible
+        quit_frame = ttk.Frame(top_frame)
+        quit_frame.pack(side=tk.RIGHT, padx=(10, 0))
+        
+        # Create a custom Canvas-based button that will definitely show red on macOS
+        self.quit_canvas = tk.Canvas(
+            quit_frame,
+            width=80,
+            height=40,
+            highlightthickness=0,
+            cursor="hand2"
+        )
+        self.quit_canvas.pack(pady=5)
+        
+        # Draw the red button background
+        self.quit_rect = self.quit_canvas.create_rectangle(
+            2, 2, 78, 38,
+            fill="#FF0000",
+            outline="#CC0000",
+            width=2
+        )
+        
+        # Add the text
+        self.quit_text = self.quit_canvas.create_text(
+            40, 20,
+            text="QUIT",
+            fill="white",
+            font=("Arial", 12, "bold")
+        )
+        
+        # Bind click events
+        def on_quit_click(event):
+            self._on_closing()
+            
+        def on_quit_enter(event):
+            # Darker red on hover
+            self.quit_canvas.itemconfig(self.quit_rect, fill="#CC0000")
+            
+        def on_quit_leave(event):
+            # Back to normal red
+            self.quit_canvas.itemconfig(self.quit_rect, fill="#FF0000")
+            
+        self.quit_canvas.bind("<Button-1>", on_quit_click)
+        self.quit_canvas.bind("<Enter>", on_quit_enter)
+        self.quit_canvas.bind("<Leave>", on_quit_leave)
+        
+        # Also bind to the text and rectangle for better click detection
+        self.quit_canvas.tag_bind(self.quit_rect, "<Button-1>", on_quit_click)
+        self.quit_canvas.tag_bind(self.quit_text, "<Button-1>", on_quit_click)
         
         # Create horizontal paned window for split layout
         paned_window = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
@@ -134,8 +188,8 @@ class MainWindow:
         # Progress bar
         self.progress_var = tk.DoubleVar()
         self.progress_bar = ttk.Progressbar(
-            self.status_frame, 
-            variable=self.progress_var, 
+            self.status_frame,
+            variable=self.progress_var,
             length=200
         )
         self.progress_bar.pack(side=tk.RIGHT, padx=5, pady=2)
@@ -456,9 +510,15 @@ Version: 1.0.0"""
         messagebox.showinfo("About", about_text)
         
     def _on_closing(self):
-        """Handle application closing."""
+        """Handle application closing gracefully."""
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
-            self.root.destroy()
+            # Clean up any resources
+            self.update_status("Shutting down...")
+            self.root.update_idletasks()
+            
+            # Proper tkinter shutdown - just quit the mainloop
+            # This allows the run() method to complete normally
+            self.root.quit()
             
     def update_status(self, message: str):
         """Update status bar message."""
