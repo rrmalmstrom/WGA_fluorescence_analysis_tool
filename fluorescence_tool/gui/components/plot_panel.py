@@ -114,7 +114,7 @@ class PlotPanel(ttk.Frame):
         self.thresholds_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(
             options_frame,
-            text="Thresholds",
+            text="CP",
             variable=self.thresholds_var,
             command=self._update_plot_options
         ).pack(side=tk.LEFT, padx=(0, 10))
@@ -281,7 +281,7 @@ class PlotPanel(ttk.Frame):
         self.color_by_scheme = self.color_by_var.get()  # Use radio button value
         
         # Debug output
-        print(f"Plot options updated: raw={self.show_raw_data}, fitted={self.show_fitted_curves}, thresholds={self.show_thresholds}")
+        print(f"Plot options updated: raw={self.show_raw_data}, fitted={self.show_fitted_curves}, CP={self.show_thresholds}")
         
         if self.selected_wells and self.analysis_results:
             print(f"Replotting {len(self.selected_wells)} wells with analysis results")
@@ -442,7 +442,7 @@ class PlotPanel(ttk.Frame):
                         if i == 0:  # Add fitted curve to legend
                             legend_elements.append(fitted_line)
                             
-                # Plot threshold indicators
+                # Plot crossing point indicators
                 if (self.show_thresholds and
                     'curve_fits' in self.analysis_results and
                     well_id in self.analysis_results['curve_fits']):
@@ -450,11 +450,21 @@ class PlotPanel(ttk.Frame):
                     well_results = self.analysis_results['curve_fits'][well_id]
                     crossing_point = well_results.get('crossing_point')
                     threshold_value = well_results.get('threshold_value')
-                    
-                    if crossing_point is not None and threshold_value is not None:
-                        # Threshold crossing point
+
+                    if crossing_point is not None:
+                        # Get fluorescence value at crossing point for plotting
+                        if threshold_value is not None:
+                            # Legacy method: use threshold value
+                            cp_fluorescence = threshold_value
+                        else:
+                            # Second derivative method: interpolate fluorescence at CP
+                            time_points = np.array(self.analysis_results['fluorescence_data'].time_points)
+                            fluo_values = self.analysis_results['fluorescence_data'].measurements[well_idx, :]
+                            cp_fluorescence = np.interp(crossing_point, time_points, fluo_values)
+                        
+                        # Crossing point marker
                         ax.plot(
-                            crossing_point, threshold_value,
+                            crossing_point, cp_fluorescence,
                             marker='o', markersize=6, color=group_color,
                             markeredgecolor='black', markeredgewidth=1
                         )
