@@ -452,21 +452,55 @@ class PlotPanel(ttk.Frame):
                     threshold_value = well_results.get('threshold_value')
 
                     if crossing_point is not None:
+                        print(f"\n=== DEBUG: Plotting CP for well {well_id} ===")
+                        print(f"Crossing point time: {crossing_point:.2f}")
+                        print(f"Threshold value: {threshold_value}")
+                        
                         # Get fluorescence value at crossing point for plotting
-                        if threshold_value is not None:
+                        # CRITICAL FIX: Always use sigmoid calculation for second derivative method
+                        curve_result = well_results.get('curve_result')
+                        threshold_result = well_results.get('threshold_result')
+                        
+                        # Check if this is second derivative method (no threshold_value for plotting)
+                        is_second_derivative = (threshold_result and
+                                              threshold_result.crossing_method == "qc_second_derivative" and
+                                              curve_result and curve_result.success and curve_result.parameters)
+                        
+                        if is_second_derivative:
+                            # Second derivative method: ALWAYS calculate fluorescence using sigmoid equation
+                            # This ensures CP is plotted exactly on the fitted curve
+                            from ...algorithms.curve_fitting import CurveFitter
+                            curve_fitter = CurveFitter()
+                            
+                            # Calculate fluorescence at CP using the exact sigmoid equation
+                            cp_fluorescence = curve_fitter.sigmoid_5param(
+                                np.array([crossing_point]), *curve_result.parameters)[0]
+                            print(f"Calculated CP fluorescence using sigmoid: {cp_fluorescence:.2f}")
+                            print(f"Using parameters: {curve_result.parameters}")
+                            
+                        elif threshold_value is not None:
                             # Legacy method: use threshold value
                             cp_fluorescence = threshold_value
+                            print(f"Using legacy threshold value: {cp_fluorescence:.2f}")
                         else:
-                            # Second derivative method: interpolate fluorescence at CP
-                            time_points = np.array(self.analysis_results['fluorescence_data'].time_points)
-                            fluo_values = self.analysis_results['fluorescence_data'].measurements[well_idx, :]
-                            cp_fluorescence = np.interp(crossing_point, time_points, fluo_values)
+                            # Fallback: interpolate from fitted curve array
+                            fitted_curve = well_results.get('fitted_curve')
+                            if fitted_curve is not None:
+                                cp_fluorescence = np.interp(crossing_point, time_points, fitted_curve)
+                                print(f"Interpolated from fitted curve: {cp_fluorescence:.2f}")
+                            else:
+                                # Final fallback: use raw data
+                                cp_fluorescence = np.interp(crossing_point, time_points, fluorescence_values)
+                                print(f"Interpolated from raw data: {cp_fluorescence:.2f}")
+                        
+                        print(f"Final CP coordinates: ({crossing_point:.2f}, {cp_fluorescence:.2f})")
                         
                         # Crossing point marker
                         ax.plot(
                             crossing_point, cp_fluorescence,
-                            marker='o', markersize=6, color=group_color,
-                            markeredgecolor='black', markeredgewidth=1
+                            marker='o', markersize=8, color=group_color,
+                            markeredgecolor='black', markeredgewidth=2,
+                            zorder=10  # Ensure marker appears on top
                         )
                         
         # Customize plot

@@ -286,6 +286,149 @@ class ThresholdAnalyzer:
             print(f"Error calculating confidence interval: {e}")
             return None
     
+    def analyze_threshold_crossing_with_fitted_curve(self, time_points: np.ndarray, fluo_values: np.ndarray,
+                                                   fitted_parameters: List[float],
+                                                   threshold: Optional[float] = None,
+                                                   method: str = "qc_second_derivative") -> ThresholdResult:
+        """
+        Complete threshold crossing analysis using pre-fitted curve parameters.
+        
+        This ensures the CP is calculated using the SAME fitted curve that is used for plotting,
+        eliminating offset issues caused by different curve fitting results.
+        
+        Args:
+            time_points: Array of time values
+            fluo_values: Array of fluorescence values
+            fitted_parameters: Pre-fitted sigmoid parameters [a, b, c, d, e]
+            threshold: Threshold value (calculated if None, only used for legacy methods)
+            method: Analysis method ("qc_second_derivative", "linear", or "spline")
+            
+        Returns:
+            ThresholdResult with analysis results
+        """
+        print(f"\n=== DEBUG: analyze_threshold_crossing_with_fitted_curve called ===")
+        print(f"Time points range: {time_points[0]:.2f} to {time_points[-1]:.2f}")
+        print(f"Fluorescence range: {fluo_values.min():.2f} to {fluo_values.max():.2f}")
+        print(f"Fitted parameters: {fitted_parameters}")
+        print(f"Method: {method}")
+        
+        try:
+            # Handle different analysis methods
+            if method == "qc_second_derivative":
+                # NEW APPROACH: QC filter + second derivative using pre-fitted curve
+                
+                # Step 1: Quality control check using fixed threshold
+                passes_qc = self.check_signal_quality(fluo_values)
+                
+                if not passes_qc:
+                    # Signal doesn't meet QC criteria - no CP calculated
+                    threshold_value, baseline_value = self.calculate_baseline_threshold(fluo_values)
+                    return ThresholdResult(
+                        success=False,
+                        threshold_value=threshold_value,
+                        crossing_time=None,
+                        crossing_method=method,
+                        confidence_interval=None,
+                        baseline_points=[1, 2, 3],
+                        baseline_value=baseline_value,
+                        error_message="Signal does not increase >10% above baseline (QC filter failed)"
+                    )
+                
+                # Step 2: Signal passes QC - calculate CP using second derivative with pre-fitted curve
+                crossing_time = self.calculate_second_derivative_crossing_point_with_fitted_curve(
+                    time_points, fitted_parameters)
+                
+                # Calculate baseline and threshold for reference
+                threshold_value, baseline_value = self.calculate_baseline_threshold(fluo_values)
+                baseline_points = [1, 2, 3]
+                confidence_interval = None
+                
+                success = crossing_time is not None
+                error_message = None if success else "Second derivative calculation failed"
+                
+            else:
+                # For legacy methods, fall back to original implementation
+                return self.analyze_threshold_crossing(time_points, fluo_values, threshold, method)
+            
+            return ThresholdResult(
+                success=success,
+                threshold_value=threshold_value,
+                crossing_time=crossing_time,
+                crossing_method=method,
+                confidence_interval=confidence_interval,
+                baseline_points=baseline_points,
+                baseline_value=baseline_value,
+                error_message=error_message
+            )
+        
+        except Exception as e:
+            return ThresholdResult(
+                success=False,
+                error_message=f"Error in threshold analysis with fitted curve: {e}"
+            )
+
+    def calculate_second_derivative_crossing_point_with_fitted_curve(self, time_points: np.ndarray,
+                                                                   fitted_parameters: List[float]) -> Optional[float]:
+        """
+        Calculate crossing point using second derivative of pre-fitted sigmoidal curve.
+        
+        This uses the SAME fitted curve parameters that are used for plotting,
+        ensuring perfect alignment between CP and curve.
+        
+        Args:
+            time_points: Array of time values
+            fitted_parameters: Pre-fitted sigmoid parameters [a, b, c, d, e]
+            
+        Returns:
+            Crossing point time or None if calculation fails
+        """
+        print(f"\n--- DEBUG: calculate_second_derivative_crossing_point_with_fitted_curve ---")
+        print(f"Input parameters: {fitted_parameters}")
+        
+        try:
+            # Import curve fitter to access sigmoid function
+            from .curve_fitting import CurveFitter
+            curve_fitter = CurveFitter()
+            
+            # Ensure we have valid parameters
+            if len(fitted_parameters) != 5:
+                print(f"ERROR: Invalid parameter count: {len(fitted_parameters)}, expected 5")
+                return None
+            
+            # Step 1: Create fine-resolution time points for smooth derivative calculation
+            fine_time = np.linspace(time_points[0], time_points[-1], len(time_points) * 20)
+            print(f"Fine time range: {fine_time[0]:.2f} to {fine_time[-1]:.2f}, {len(fine_time)} points")
+            
+            # Step 2: Generate fitted curve values at fine resolution using PRE-FITTED parameters
+            fitted_values = curve_fitter.sigmoid_5param(fine_time, *fitted_parameters)
+            print(f"Fitted values range: {fitted_values.min():.2f} to {fitted_values.max():.2f}")
+            
+            # Step 3: Calculate second derivative of the fitted curve
+            spline = CubicSpline(fine_time, fitted_values)
+            second_derivative = spline(fine_time, nu=2)  # nu=2 for second derivative
+            print(f"Second derivative range: {second_derivative.min():.6f} to {second_derivative.max():.6f}")
+            
+            # Step 4: Find the maximum of the second derivative (steepest acceleration)
+            max_second_deriv_idx = np.argmax(second_derivative)
+            crossing_point = fine_time[max_second_deriv_idx]
+            print(f"Max second derivative at index {max_second_deriv_idx}, time = {crossing_point:.2f}")
+            
+            # Calculate fluorescence at CP for debugging
+            cp_fluorescence = curve_fitter.sigmoid_5param(np.array([crossing_point]), *fitted_parameters)[0]
+            print(f"CP fluorescence at {crossing_point:.2f}: {cp_fluorescence:.2f}")
+            
+            # Validate the crossing point is within reasonable bounds
+            if crossing_point < time_points[0] or crossing_point > time_points[-1]:
+                print(f"ERROR: CP {crossing_point:.2f} outside time bounds [{time_points[0]:.2f}, {time_points[-1]:.2f}]")
+                return None
+            
+            print(f"SUCCESS: CP calculated at {crossing_point:.2f}")
+            return float(crossing_point)
+            
+        except Exception as e:
+            print(f"Error calculating second derivative crossing point with fitted curve: {e}")
+            return None
+
     def analyze_threshold_crossing(self, time_points: np.ndarray, fluo_values: np.ndarray,
                                  threshold: Optional[float] = None,
                                  method: str = "qc_second_derivative") -> ThresholdResult:

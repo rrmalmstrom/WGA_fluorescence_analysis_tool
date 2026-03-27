@@ -372,8 +372,25 @@ class MainWindow:
                             print(f"Warning: Could not generate fitted curve for {well_id}: {e}")
                     
                     # Perform crossing point analysis using second derivative method
-                    threshold_result = threshold_analyzer.analyze_threshold_crossing(
-                        time_points, fluo_values, method="qc_second_derivative")
+                    # CRITICAL FIX: Pass the fitted curve parameters to ensure consistency
+                    print(f"\n=== DEBUG: Analyzing well {well_id} ===")
+                    print(f"Curve fit success: {curve_result.success}")
+                    if curve_result.success and curve_result.parameters:
+                        print(f"Using analyze_threshold_crossing_with_fitted_curve")
+                        print(f"Parameters: {curve_result.parameters}")
+                        # Use the same fitted curve for CP calculation as for plotting
+                        threshold_result = threshold_analyzer.analyze_threshold_crossing_with_fitted_curve(
+                            time_points, fluo_values, curve_result.parameters, method="qc_second_derivative")
+                    else:
+                        print(f"Using fallback analyze_threshold_crossing method")
+                        # Fallback to original method if curve fitting failed
+                        threshold_result = threshold_analyzer.analyze_threshold_crossing(
+                            time_points, fluo_values, method="qc_second_derivative")
+                    
+                    print(f"Threshold result success: {threshold_result.success}")
+                    if threshold_result.success:
+                        print(f"Crossing time: {threshold_result.crossing_time}")
+                        print(f"Threshold value: {threshold_result.threshold_value}")
                     
                     # Store results
                     self.analysis_results['curve_fits'][well_id] = {
