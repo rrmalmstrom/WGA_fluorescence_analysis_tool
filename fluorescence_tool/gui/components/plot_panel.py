@@ -281,13 +281,14 @@ class PlotPanel(ttk.Frame):
         self.color_by_scheme = self.color_by_var.get()  # Use radio button value
         
         # Debug output
-        print(f"Plot options updated: raw={self.show_raw_data}, fitted={self.show_fitted_curves}, CP={self.show_thresholds}")
+        # print(f"Plot options updated: raw={self.show_raw_data}, fitted={self.show_fitted_curves}, CP={self.show_thresholds}")
         
         if self.selected_wells and self.analysis_results:
-            print(f"Replotting {len(self.selected_wells)} wells with analysis results")
+            # print(f"Replotting {len(self.selected_wells)} wells with analysis results")
             self._plot_selected_wells()
         else:
-            print(f"No replot: selected_wells={len(self.selected_wells) if self.selected_wells else 0}, analysis_results={bool(self.analysis_results)}")
+            # print(f"No replot: selected_wells={len(self.selected_wells) if self.selected_wells else 0}, analysis_results={bool(self.analysis_results)}")
+            pass
     
     def _validate_float(self, value):
         """Validate that input is a valid float."""
@@ -452,9 +453,9 @@ class PlotPanel(ttk.Frame):
                     threshold_value = well_results.get('threshold_value')
 
                     if crossing_point is not None:
-                        print(f"\n=== DEBUG: Plotting CP for well {well_id} ===")
-                        print(f"Crossing point time: {crossing_point:.2f}")
-                        print(f"Threshold value: {threshold_value}")
+                        # print(f"\n=== DEBUG: Plotting CP for well {well_id} ===")
+                        # print(f"Crossing point time: {crossing_point:.2f}")
+                        # print(f"Threshold value: {threshold_value}")
                         
                         # Get fluorescence value at crossing point for plotting
                         # CRITICAL FIX: Always use sigmoid calculation for second derivative method
@@ -475,25 +476,25 @@ class PlotPanel(ttk.Frame):
                             # Calculate fluorescence at CP using the exact sigmoid equation
                             cp_fluorescence = curve_fitter.sigmoid_5param(
                                 np.array([crossing_point]), *curve_result.parameters)[0]
-                            print(f"Calculated CP fluorescence using sigmoid: {cp_fluorescence:.2f}")
-                            print(f"Using parameters: {curve_result.parameters}")
+                            # print(f"Calculated CP fluorescence using sigmoid: {cp_fluorescence:.2f}")
+                            # print(f"Using parameters: {curve_result.parameters}")
                             
                         elif threshold_value is not None:
                             # Legacy method: use threshold value
                             cp_fluorescence = threshold_value
-                            print(f"Using legacy threshold value: {cp_fluorescence:.2f}")
+                            # print(f"Using legacy threshold value: {cp_fluorescence:.2f}")
                         else:
                             # Fallback: interpolate from fitted curve array
                             fitted_curve = well_results.get('fitted_curve')
                             if fitted_curve is not None:
                                 cp_fluorescence = np.interp(crossing_point, time_points, fitted_curve)
-                                print(f"Interpolated from fitted curve: {cp_fluorescence:.2f}")
+                                # print(f"Interpolated from fitted curve: {cp_fluorescence:.2f}")
                             else:
                                 # Final fallback: use raw data
                                 cp_fluorescence = np.interp(crossing_point, time_points, fluorescence_values)
-                                print(f"Interpolated from raw data: {cp_fluorescence:.2f}")
+                                # print(f"Interpolated from raw data: {cp_fluorescence:.2f}")
                         
-                        print(f"Final CP coordinates: ({crossing_point:.2f}, {cp_fluorescence:.2f})")
+                        # print(f"Final CP coordinates: ({crossing_point:.2f}, {cp_fluorescence:.2f})")
                         
                         # Crossing point marker
                         ax.plot(

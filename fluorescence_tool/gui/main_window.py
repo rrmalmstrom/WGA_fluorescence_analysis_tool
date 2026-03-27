@@ -391,7 +391,7 @@ class MainWindow:
                     # If no layout data, analyze all wells
                     wells_to_analyze.append(well_id)
             
-            print(f"Analyzing {len(wells_to_analyze)} wells (skipping {total_wells - len(wells_to_analyze)} unused wells)")
+            # print(f"Analyzing {len(wells_to_analyze)} wells (skipping {total_wells - len(wells_to_analyze)} unused wells)")
             
             for i, well_id in enumerate(self.fluorescence_data.wells):
                 try:
@@ -428,28 +428,33 @@ class MainWindow:
                             fitted_curve = curve_fitter.sigmoid_5param(
                                 time_points, *curve_result.parameters)
                         except Exception as e:
-                            print(f"Warning: Could not generate fitted curve for {well_id}: {e}")
+                            # print(f"Warning: Could not generate fitted curve for {well_id}: {e}")
+                            pass
                     
                     # Perform crossing point analysis using second derivative method
                     # CRITICAL FIX: Pass the fitted curve parameters to ensure consistency
-                    print(f"\n=== DEBUG: Analyzing well {well_id} ===")
-                    print(f"Curve fit success: {curve_result.success}")
+                    # print(f"\n=== DEBUG: Analyzing well {well_id} ===")
+                    # print(f"Curve fit success: {curve_result.success}")
                     if curve_result.success and curve_result.parameters:
-                        print(f"Using analyze_threshold_crossing_with_fitted_curve")
-                        print(f"Parameters: {curve_result.parameters}")
+                        # print(f"Using analyze_threshold_crossing_with_fitted_curve")
+                        # print(f"Parameters: {curve_result.parameters}")
                         # Use the same fitted curve for CP calculation as for plotting
                         threshold_result = threshold_analyzer.analyze_threshold_crossing_with_fitted_curve(
                             time_points, fluo_values, curve_result.parameters, method="qc_second_derivative")
                     else:
-                        print(f"Using fallback analyze_threshold_crossing method")
-                        # Fallback to original method if curve fitting failed
-                        threshold_result = threshold_analyzer.analyze_threshold_crossing(
-                            time_points, fluo_values, method="qc_second_derivative")
+                        # print(f"Curve fitting failed - no crossing point calculated")
+                        # No fallback - if curve fitting fails, no crossing point
+                        from ..core.models import ThresholdResult
+                        threshold_result = ThresholdResult(
+                            success=False,
+                            error_message="Curve fitting failed - no crossing point calculated"
+                        )
                     
-                    print(f"Threshold result success: {threshold_result.success}")
+                    # print(f"Threshold result success: {threshold_result.success}")
                     if threshold_result.success:
-                        print(f"Crossing time: {threshold_result.crossing_time}")
-                        print(f"Threshold value: {threshold_result.threshold_value}")
+                        # print(f"Crossing time: {threshold_result.crossing_time}")
+                        # print(f"Threshold value: {threshold_result.threshold_value}")
+                        pass
                     
                     # Store results
                     self.analysis_results['curve_fits'][well_id] = {
@@ -461,7 +466,7 @@ class MainWindow:
                     }
                     
                 except Exception as e:
-                    print(f"Warning: Analysis failed for well {well_id}: {e}")
+                    # print(f"Warning: Analysis failed for well {well_id}: {e}")
                     # Continue with other wells
                     continue
             

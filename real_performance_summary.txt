@@ -1,0 +1,95 @@
+REAL FLUORESCENCE ANALYSIS TOOL - PERFORMANCE PROFILING
+======================================================================
+
+REALISTIC PERFORMANCE MEASUREMENTS
+----------------------------------------
+Dataset: Real Workflow Test (96 wells)
+Total wells: 384
+Analyzed wells: 96
+Skipped wells: 288
+
+TIMING BREAKDOWN
+--------------------
+Total workflow time: 1.35 seconds
+Sequential processing time: 1.35 seconds
+Average time per well: 14.1 ms
+Min time per well: 9.8 ms
+Max time per well: 27.7 ms
+Average curve fitting time: 13.9 ms
+Average threshold analysis time: 0.2 ms
+
+TIME DISTRIBUTION
+--------------------
+Curve fitting: 98.6% of per-well time
+Threshold analysis: 1.3% of per-well time
+
+SUCCESS RATES
+---------------
+Successful curve fits: 96/96 (100.0%)
+Successful threshold analyses: 66/96 (68.8%)
+
+PERFORMANCE EXTRAPOLATION
+------------------------------
+Estimated time for 96-well plate: 1.4 seconds
+Estimated time for 384-well plate: 5.4 seconds
+
+DETAILED FUNCTION PROFILING
+-----------------------------------
+         2481556 function calls (2477251 primitive calls) in 1.351 seconds
+
+   Ordered by: cumulative time
+   List reduced from 266 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.001    0.001    1.352    1.352 /Users/RRMalmstrom/Desktop/Programming/MDA_fluorescence_analysis_tool/profile_real_performance.py:47(simulate_gui_analysis_workflow)
+       96    0.002    0.000    1.331    0.014 /Users/RRMalmstrom/Desktop/Programming/MDA_fluorescence_analysis_tool/fluorescence_tool/algorithms/curve_fitting.py:186(fit_curve)
+      288    0.006    0.000    1.313    0.005 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_minpack_py.py:590(curve_fit)
+      288    0.001    0.000    1.296    0.005 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/_lib/_util.py:684(inner)
+      288    0.004    0.000    1.295    0.004 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_lsq/least_squares.py:266(least_squares)
+      288    0.001    0.000    1.217    0.004 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_lsq/trf.py:113(trf)
+      288    0.076    0.000    1.216    0.004 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_lsq/trf.py:206(trf_bounds)
+     4257    0.004    0.000    0.599    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_differentiable_functions.py:739(jac)
+     4257    0.034    0.000    0.596    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_numdiff.py:278(approx_derivative)
+     4257    0.005    0.000    0.581    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_differentiable_functions.py:702(_update_jac)
+     3969    0.010    0.000    0.571    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_differentiable_functions.py:438(__call__)
+     4257    0.016    0.000    0.425    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_numdiff.py:663(_dense_difference)
+     4257    0.014    0.000    0.387    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_numdiff.py:686(<listcomp>)
+    21285    0.029    0.000    0.345    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_numdiff.py:871(__call__)
+    26099    0.017    0.000    0.290    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_differentiable_functions.py:413(__call__)
+    26099    0.007    0.000    0.253    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_lsq/least_squares.py:262(__call__)
+    26099    0.008    0.000    0.246    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_minpack_py.py:514(_memoized_func)
+    26099    0.028    0.000    0.236    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_minpack_py.py:539(func_wrapped)
+    26711    0.148    0.000    0.214    0.000 /Users/RRMalmstrom/Desktop/Programming/MDA_fluorescence_analysis_tool/fluorescence_tool/algorithms/curve_fitting.py:55(sigmoid_5param)
+     4814    0.003    0.000    0.105    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_differentiable_functions.py:732(fun)
+    58366    0.036    0.000    0.101    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/numpy/core/fromnumeric.py:71(_wrapreduction)
+     4526    0.024    0.000    0.099    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_lsq/common.py:57(solve_lsq_trust_region)
+     4331    0.011    0.000    0.095    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/_lib/_util.py:1203(wrapper)
+     4526    0.013    0.000    0.093    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_lsq/trf.py:129(select_step)
+    43104    0.016    0.000    0.090    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/numpy/core/fromnumeric.py:2421(all)
+     4265    0.041    0.000    0.081    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/linalg/_decomp_svd.py:16(svd)
+    33407    0.043    0.000    0.076    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/numpy/linalg/linalg.py:2383(norm)
+     9071    0.004    0.000    0.068    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_differentiable_functions.py:696(_update_fun)
+     4257    0.051    0.000    0.067    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_numdiff.py:14(_adjust_scheme_to_bounds)
+    78058    0.065    0.000    0.065    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+    25830    0.008    0.000    0.058    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/_lib/array_api_compat/_internal.py:32(wrapped_f)
+      288    0.003    0.000    0.056    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_differentiable_functions.py:533(__init__)
+     6506    0.025    0.000    0.054    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_lsq/common.py:106(phi_and_derivative)
+    25830    0.015    0.000    0.049    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/_lib/array_api_compat/common/_aliases.py:594(isdtype)
+     9071    0.010    0.000    0.047    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_differentiable_functions.py:677(_update_x)
+     4814    0.026    0.000    0.044    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_lsq/common.py:440(make_strictly_feasible)
+     4553    0.031    0.000    0.044    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_lsq/common.py:467(CL_scaling_vector)
+    52217    0.026    0.000    0.034    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/numpy/core/shape_base.py:23(atleast_1d)
+    26426    0.015    0.000    0.031    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/numpy/core/numerictypes.py:357(issubdtype)
+     2061    0.014    0.000    0.031    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_lsq/common.py:372(step_size_to_bound)
+    30356    0.012    0.000    0.028    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/_lib/array_api_compat/numpy/_aliases.py:116(astype)
+    25542    0.016    0.000    0.027    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_numdiff.py:670(x_generator2)
+     4257    0.022    0.000    0.023    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_numdiff.py:147(_compute_absolute_step)
+     9071    0.010    0.000    0.023    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/numpy/core/numeric.py:2378(array_equal)
+     4397    0.005    0.000    0.021    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/_lib/_util.py:410(_asarray_validated)
+     5102    0.012    0.000    0.020    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_lsq/common.py:401(find_active_constraints)
+    49461    0.020    0.000    0.020    0.000 {method 'dot' of 'numpy.ndarray' objects}
+    13912    0.003    0.000    0.019    0.000 {method 'all' of 'numpy.ndarray' objects}
+       96    0.001    0.000    0.018    0.000 /Users/RRMalmstrom/Desktop/Programming/MDA_fluorescence_analysis_tool/fluorescence_tool/algorithms/threshold_analysis.py:301(analyze_threshold_crossing_with_fitted_curve)
+     4814    0.007    0.000    0.018    0.000 /Users/RRMalmstrom/anaconda3/lib/python3.11/site-packages/scipy/optimize/_lsq/common.py:367(in_bounds)
+
+

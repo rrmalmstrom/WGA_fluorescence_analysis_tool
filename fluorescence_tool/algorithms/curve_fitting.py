@@ -82,7 +82,7 @@ class CurveFitter:
                 raise ValueError("Overflow detected in sigmoid calculation")
             return result
         except Exception as e:
-            print(f"Error in sigmoid calculation: {e}")
+            # print(f"Error in sigmoid calculation: {e}")
             return np.full_like(x, np.nan)
     
     def calculate_fit_error(self, time_points: np.ndarray, fluo_values: np.ndarray, params: List[float]) -> float:
@@ -227,12 +227,12 @@ class CurveFitter:
                     
                     # Check if covariance could be estimated
                     if pcov is None or not np.all(np.isfinite(pcov)):
-                        print(f"Warning: {attempt['name']} - Covariance could not be estimated")
+                        # print(f"Warning: {attempt['name']} - Covariance could not be estimated")
                         continue
                     
                     # Check if parameters are reasonable
                     if not np.all(np.isfinite(popt)) or any(p == 0 for p in popt[:4]):
-                        print(f"Warning: {attempt['name']} - Unreasonable parameters")
+                        # print(f"Warning: {attempt['name']} - Unreasonable parameters")
                         continue
                     
                     # Calculate fit error
@@ -245,10 +245,10 @@ class CurveFitter:
                         best_strategy = attempt["name"]
                 
                 except TimeoutException:
-                    print(f"Warning: {attempt['name']} - Curve fitting timed out")
+                    # print(f"Warning: {attempt['name']} - Curve fitting timed out")
                     signal.alarm(0)
                 except Exception as e:
-                    print(f"Warning: {attempt['name']} - Error fitting curve: {e}")
+                    # print(f"Warning: {attempt['name']} - Error fitting curve: {e}")
                     signal.alarm(0)
             
             # If no good fit was found, return failure
@@ -320,7 +320,7 @@ class CurveFitter:
             return None
         
         except Exception as e:
-            print(f"Error finding crossing time: {e}")
+            # print(f"Error finding crossing time: {e}")
             return None
     
     def fit_curve_and_find_crossing(self, time_points: np.ndarray, fluo_values: np.ndarray, threshold: Optional[float] = None) -> Tuple[Optional[float], Optional[List[float]]]:

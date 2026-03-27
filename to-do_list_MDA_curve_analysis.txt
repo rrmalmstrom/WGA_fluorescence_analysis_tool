@@ -1,18 +1,9 @@
 
 
-Cp plots don't show dots on top of the curve
-
-be consistent with time units. For biorad, we convert to minutes, but then can convert back to hours.  Need to update the x-axis label
-
-export column headers should be minutes not hours
-
-Automatically process and analyze
-
 update layout file to include sample names following new layout process
 
 extract the plate name from the data file and add use it in the output file names.  Need different parsing info for differetn data formats
 
-add "quit" button
 
 documentation
 

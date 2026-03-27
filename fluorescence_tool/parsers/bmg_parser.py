@@ -123,7 +123,7 @@ class BMGOmega3Parser:
                 time_points.append(time_hours)  # Keep in hours for consistency
             except ValueError as e:
                 # Skip invalid time headers but warn
-                print(f"Warning: Skipping invalid time header '{header}': {e}")
+                # print(f"Warning: Skipping invalid time header '{header}': {e}")
                 continue
         
         if not time_points:
@@ -208,7 +208,7 @@ class BMGOmega3Parser:
                     
             except ValueError:
                 # Skip wells with invalid measurement data
-                print(f"Warning: Skipping well {well_id} due to invalid measurements")
+                # print(f"Warning: Skipping well {well_id} due to invalid measurements")
                 continue
         
         if not wells:
@@ -219,7 +219,7 @@ class BMGOmega3Parser:
         
         # Handle any NaN values by interpolation or removal
         if np.any(np.isnan(measurements_array)):
-            print("Warning: Found NaN values in measurements, attempting to clean")
+            # print("Warning: Found NaN values in measurements, attempting to clean")
             measurements_array = self._clean_measurements(measurements_array)
         
         return wells, measurements_array
