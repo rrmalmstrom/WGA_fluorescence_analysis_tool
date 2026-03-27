@@ -165,7 +165,7 @@ class PlotPanel(ttk.Frame):
         cp_frame = ttk.Frame(threshold_frame)
         cp_frame.pack(side=tk.LEFT, padx=(0, 15))
         
-        ttk.Label(cp_frame, text="CP Threshold (min):").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(cp_frame, text="CP Threshold (hours):").pack(side=tk.LEFT, padx=(0, 5))
         self.cp_threshold_var = tk.StringVar(value=str(self.pass_fail_thresholds.cp_threshold))
         self.cp_threshold_entry = ttk.Entry(
             cp_frame,
@@ -266,7 +266,7 @@ class PlotPanel(ttk.Frame):
                 horizontalalignment='center', verticalalignment='center',
                 transform=ax.transAxes, fontsize=12, color='gray')
         
-        ax.set_xlabel('Time (minutes)')
+        ax.set_xlabel('Time (hours)')
         ax.set_ylabel('Fluorescence (RFU)')
         ax.set_title('Fluorescence Time Series')
         ax.grid(True, alpha=0.3)
@@ -504,7 +504,7 @@ class PlotPanel(ttk.Frame):
                         )
                         
         # Customize plot
-        ax.set_xlabel('Time (minutes)', fontsize=12)
+        ax.set_xlabel('Time (hours)', fontsize=12)
         ax.set_ylabel('Fluorescence (RFU)', fontsize=12)
         ax.set_title(f'Fluorescence Time Series ({len(self.selected_wells)} wells)', fontsize=14)
         ax.grid(True, alpha=0.3)
