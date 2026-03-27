@@ -371,9 +371,9 @@ class MainWindow:
                         except Exception as e:
                             print(f"Warning: Could not generate fitted curve for {well_id}: {e}")
                     
-                    # Perform threshold analysis
+                    # Perform crossing point analysis using second derivative method
                     threshold_result = threshold_analyzer.analyze_threshold_crossing(
-                        time_points, fluo_values, method="linear")
+                        time_points, fluo_values, method="qc_second_derivative")
                     
                     # Store results
                     self.analysis_results['curve_fits'][well_id] = {

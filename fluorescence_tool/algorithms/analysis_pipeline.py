@@ -33,9 +33,9 @@ class AnalysisConfiguration:
     # Curve fitting parameters
     curve_fitting_timeout: int = 2
     
-    # Threshold analysis parameters
-    baseline_percentage: float = 0.10
-    threshold_method: str = "linear"  # "linear" or "spline"
+    # Crossing point analysis parameters
+    baseline_percentage: float = 0.10  # Only used for legacy methods
+    threshold_method: str = "qc_second_derivative"  # "qc_second_derivative", "linear", or "spline"
     
     # Output configuration
     export_individual_results: bool = True
@@ -187,7 +187,7 @@ class FluorescenceAnalysisPipeline:
             # Perform curve fitting
             curve_result = self.curve_fitter.fit_curve(time_points, fluo_values)
             
-            # Perform threshold analysis
+            # Perform crossing point analysis
             threshold_result = self.threshold_analyzer.analyze_threshold_crossing(
                 time_points, fluo_values, method=self.config.threshold_method)
             

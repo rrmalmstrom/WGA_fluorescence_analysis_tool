@@ -55,11 +55,25 @@ class ExportManager:
         # Create layout lookup
         layout_dict = {well.well_id: well for well in layout_data} if layout_data else {}
         
-        # Create pass/fail lookup
+        # Create pass/fail lookup from GUI threshold analysis
         pass_fail_dict = {}
-        if pass_fail_results and 'well_results' in pass_fail_results:
-            for well_id, result in pass_fail_results['well_results'].items():
-                pass_fail_dict[well_id] = result.get('overall_result', 'N/A')
+        if pass_fail_results:
+            # Handle direct PassFailResult objects from GUI analyzer
+            if isinstance(pass_fail_results, dict):
+                for well_id, result in pass_fail_results.items():
+                    if hasattr(result, 'passed'):
+                        # This is a PassFailResult object
+                        if result.passed:
+                            pass_fail_dict[well_id] = 'Pass'
+                        else:
+                            pass_fail_dict[well_id] = 'Fail'
+                    elif isinstance(result, dict) and 'overall_result' in result:
+                        # Legacy format
+                        pass_fail_dict[well_id] = result.get('overall_result', 'N/A')
+            # Handle legacy format with 'well_results' key
+            elif 'well_results' in pass_fail_results:
+                for well_id, result in pass_fail_results['well_results'].items():
+                    pass_fail_dict[well_id] = result.get('overall_result', 'N/A')
         
         # Prepare export data
         export_rows = []
@@ -136,8 +150,18 @@ class ExportManager:
                     
                     if threshold_result and hasattr(threshold_result, 'fluorescence_change'):
                         delta_fluor = threshold_result.fluorescence_change
-                    if threshold_result and hasattr(threshold_result, 'crossing_time'):
-                        crossing_point = threshold_result.crossing_time
+                    
+                    # Handle crossing point with QC filter logic
+                    if threshold_result:
+                        if hasattr(threshold_result, 'crossing_time'):
+                            if threshold_result.crossing_time is not None:
+                                crossing_point = threshold_result.crossing_time
+                            else:
+                                # Well failed QC filter - no CP value
+                                crossing_point = 'Failed QC'
+                        elif hasattr(threshold_result, 'success') and not threshold_result.success:
+                            # Alternative check for failed analysis
+                            crossing_point = 'Failed QC'
                     if curve_result and hasattr(curve_result, 'r_squared'):
                         r_squared = curve_result.r_squared
                     if curve_result and hasattr(curve_result, 'success'):
@@ -153,11 +177,42 @@ class ExportManager:
                     if hasattr(fit_data, 'fit_quality'):
                         fit_quality = fit_data.fit_quality
             
+            # Determine pass/fail status using correct logic:
+            # 1. QC filter determines if CP exists (FIXED - never changes)
+            # 2. GUI thresholds determine pass/fail for wells WITH CP values (DYNAMIC)
+            pass_fail_status = 'N/A'
+            
+            if threshold_result and hasattr(threshold_result, 'success'):
+                if threshold_result.success and threshold_result.crossing_time is not None:
+                    # Well PASSED QC filter and has a CP value
+                    # Apply current GUI threshold values to determine final pass/fail
+                    gui_result = pass_fail_dict.get(well_id)
+                    if gui_result and gui_result != 'N/A':
+                        pass_fail_status = gui_result  # Use current GUI threshold result
+                    else:
+                        pass_fail_status = 'Pass'  # Default pass if no GUI thresholds applied
+                        
+                elif not threshold_result.success:
+                    # Well FAILED QC filter - no CP calculated, automatic fail
+                    if hasattr(threshold_result, 'error_message') and threshold_result.error_message:
+                        if 'QC filter failed' in threshold_result.error_message:
+                            pass_fail_status = 'Fail (QC)'  # Failed QC filter
+                        else:
+                            pass_fail_status = 'Fail (Analysis)'  # Other analysis error
+                    else:
+                        pass_fail_status = 'Fail (QC)'
+                else:
+                    # Edge case: success=False but no error message
+                    pass_fail_status = 'Fail (Analysis)'
+            else:
+                # No threshold result - fallback to GUI thresholds only
+                pass_fail_status = pass_fail_dict.get(well_id, 'N/A')
+
             # Add analysis columns
             row_data.update({
                 'Delta_Fluorescence': delta_fluor,
                 'Crossing_Point': crossing_point,
-                'Pass_Fail': pass_fail_dict.get(well_id, 'N/A')
+                'Pass_Fail': pass_fail_status
             })
             
             # Add raw fluorescence data (one column per time point)

@@ -8,7 +8,8 @@ functionality that has been validated with real fluorescence data.
 import numpy as np
 from typing import Optional, List, Tuple, Dict, Any
 from dataclasses import dataclass
-from scipy import interpolate
+from scipy import interpolate, signal
+from scipy.interpolate import CubicSpline
 import warnings
 
 
@@ -147,8 +148,93 @@ class ThresholdAnalyzer:
             print(f"Error in spline interpolation: {e}")
             return None
     
-    def calculate_confidence_interval(self, time_points: np.ndarray, fluo_values: np.ndarray, 
-                                    crossing_time: float, threshold: float, 
+    def calculate_second_derivative_crossing_point(self, time_points: np.ndarray, fluo_values: np.ndarray) -> Optional[float]:
+        """
+        Calculate crossing point using second derivative of FITTED SIGMOIDAL CURVE.
+        
+        This is the industry-standard method: fit a sigmoidal curve first, then find
+        the maximum of the second derivative of that fitted curve.
+        
+        Args:
+            time_points: Array of time values
+            fluo_values: Array of fluorescence values
+            
+        Returns:
+            Crossing point time or None if calculation fails
+        """
+        try:
+            # Import curve fitter
+            from .curve_fitting import CurveFitter
+            
+            # Ensure we have enough data points
+            if len(time_points) < 5 or len(fluo_values) < 5:
+                return None
+            
+            # Check for sufficient variation in data
+            if np.max(fluo_values) - np.min(fluo_values) < 0.1:
+                return None
+            
+            # Step 1: Fit sigmoidal curve to the data
+            curve_fitter = CurveFitter(timeout_seconds=2)
+            fit_result = curve_fitter.fit_curve(time_points, fluo_values)
+            
+            if not fit_result.success or fit_result.parameters is None:
+                return None
+            
+            # Step 2: Create fine-resolution time points for smooth derivative calculation
+            fine_time = np.linspace(time_points[0], time_points[-1], len(time_points) * 20)
+            
+            # Step 3: Generate fitted curve values at fine resolution
+            fitted_values = curve_fitter.sigmoid_5param(fine_time, *fit_result.parameters)
+            
+            # Step 4: Calculate second derivative of the fitted curve
+            spline = CubicSpline(fine_time, fitted_values)
+            second_derivative = spline(fine_time, nu=2)  # nu=2 for second derivative
+            
+            # Step 5: Find the maximum of the second derivative (steepest acceleration)
+            max_second_deriv_idx = np.argmax(second_derivative)
+            crossing_point = fine_time[max_second_deriv_idx]
+            
+            # Validate the crossing point is within reasonable bounds
+            if crossing_point < time_points[0] or crossing_point > time_points[-1]:
+                return None
+            
+            return float(crossing_point)
+            
+        except Exception as e:
+            print(f"Error calculating second derivative crossing point: {e}")
+            return None
+    
+    def check_signal_quality(self, fluo_values: np.ndarray, baseline_points: Optional[List[int]] = None) -> bool:
+        """
+        Quality control check: Does the signal increase by more than 10% above baseline?
+        
+        This is used as a filter before calculating crossing points. Only wells that pass
+        this QC check will get a crossing point calculated using the second derivative method.
+        
+        Args:
+            fluo_values: Array of fluorescence values
+            baseline_points: Indices to use for baseline calculation (default: points 1-3)
+            
+        Returns:
+            True if signal increases >10% above baseline, False otherwise
+        """
+        try:
+            # Calculate baseline threshold (this includes the 10% increase)
+            threshold_value, baseline_value = self.calculate_baseline_threshold(fluo_values, baseline_points)
+            
+            # Check if maximum signal exceeds the threshold
+            max_signal = np.max(fluo_values)
+            
+            # Signal passes QC if max signal is above the 10% threshold
+            return max_signal >= threshold_value
+            
+        except Exception:
+            # If calculation fails, assume signal doesn't pass QC
+            return False
+    
+    def calculate_confidence_interval(self, time_points: np.ndarray, fluo_values: np.ndarray,
+                                    crossing_time: float, threshold: float,
                                     confidence_level: float = 0.95) -> Optional[Tuple[float, float]]:
         """
         Calculate confidence interval for crossing time estimate.
@@ -200,51 +286,92 @@ class ThresholdAnalyzer:
             print(f"Error calculating confidence interval: {e}")
             return None
     
-    def analyze_threshold_crossing(self, time_points: np.ndarray, fluo_values: np.ndarray, 
+    def analyze_threshold_crossing(self, time_points: np.ndarray, fluo_values: np.ndarray,
                                  threshold: Optional[float] = None,
-                                 method: str = "linear") -> ThresholdResult:
+                                 method: str = "qc_second_derivative") -> ThresholdResult:
         """
-        Complete threshold crossing analysis.
+        Complete threshold crossing analysis with QC filtering.
+        
+        NEW APPROACH: Uses fixed threshold as QC filter, then second derivative for CP calculation.
+        Only wells that increase >10% above baseline get a crossing point calculated.
         
         Args:
             time_points: Array of time values
             fluo_values: Array of fluorescence values
-            threshold: Threshold value (calculated if None)
-            method: Interpolation method ("linear" or "spline")
+            threshold: Threshold value (calculated if None, only used for legacy methods)
+            method: Analysis method ("qc_second_derivative", "linear", or "spline")
+                   - "qc_second_derivative": QC filter + second derivative (recommended)
+                   - "linear": Fixed baseline percentage method (legacy)
+                   - "spline": Spline interpolation method (legacy)
             
         Returns:
             ThresholdResult with analysis results
         """
         try:
-            # Calculate threshold if not provided
-            if threshold is None:
+            # Handle different analysis methods
+            if method == "qc_second_derivative":
+                # NEW APPROACH: QC filter + second derivative
+                
+                # Step 1: Quality control check using fixed threshold
+                passes_qc = self.check_signal_quality(fluo_values)
+                
+                if not passes_qc:
+                    # Signal doesn't meet QC criteria - no CP calculated
+                    threshold_value, baseline_value = self.calculate_baseline_threshold(fluo_values)
+                    return ThresholdResult(
+                        success=False,
+                        threshold_value=threshold_value,
+                        crossing_time=None,
+                        crossing_method=method,
+                        confidence_interval=None,
+                        baseline_points=[1, 2, 3],
+                        baseline_value=baseline_value,
+                        error_message="Signal does not increase >10% above baseline (QC filter failed)"
+                    )
+                
+                # Step 2: Signal passes QC - calculate CP using second derivative
+                crossing_time = self.calculate_second_derivative_crossing_point(time_points, fluo_values)
+                
+                # Calculate baseline and threshold for reference
                 threshold_value, baseline_value = self.calculate_baseline_threshold(fluo_values)
                 baseline_points = [1, 2, 3]
+                confidence_interval = None
+                
+                success = crossing_time is not None
+                error_message = None if success else "Second derivative calculation failed"
+                
             else:
-                threshold_value = threshold
-                baseline_value = None
-                baseline_points = None
-            
-            # Find crossing point using specified method
-            if method == "linear":
-                crossing_time = self.find_crossing_point_linear_interpolation(
-                    time_points, fluo_values, threshold_value)
-            elif method == "spline":
-                crossing_time = self.find_crossing_point_spline_interpolation(
-                    time_points, fluo_values, threshold_value)
-            else:
-                return ThresholdResult(
-                    success=False,
-                    error_message=f"Unknown interpolation method: {method}"
-                )
-            
-            # Calculate confidence interval if crossing found
-            confidence_interval = None
-            if crossing_time is not None:
-                confidence_interval = self.calculate_confidence_interval(
-                    time_points, fluo_values, crossing_time, threshold_value)
-            
-            success = crossing_time is not None
+                # LEGACY METHODS: Baseline percentage threshold crossing
+                # Calculate threshold if not provided
+                if threshold is None:
+                    threshold_value, baseline_value = self.calculate_baseline_threshold(fluo_values)
+                    baseline_points = [1, 2, 3]
+                else:
+                    threshold_value = threshold
+                    baseline_value = None
+                    baseline_points = None
+                
+                # Find crossing point using specified legacy method
+                if method == "linear":
+                    crossing_time = self.find_crossing_point_linear_interpolation(
+                        time_points, fluo_values, threshold_value)
+                elif method == "spline":
+                    crossing_time = self.find_crossing_point_spline_interpolation(
+                        time_points, fluo_values, threshold_value)
+                else:
+                    return ThresholdResult(
+                        success=False,
+                        error_message=f"Unknown analysis method: {method}"
+                    )
+                
+                # Calculate confidence interval if crossing found
+                confidence_interval = None
+                if crossing_time is not None:
+                    confidence_interval = self.calculate_confidence_interval(
+                        time_points, fluo_values, crossing_time, threshold_value)
+                
+                success = crossing_time is not None
+                error_message = None if success else f"No crossing point found using {method} method"
             
             return ThresholdResult(
                 success=success,
@@ -254,7 +381,7 @@ class ThresholdAnalyzer:
                 confidence_interval=confidence_interval,
                 baseline_points=baseline_points,
                 baseline_value=baseline_value,
-                error_message=None if success else "No threshold crossing found"
+                error_message=error_message
             )
         
         except Exception as e:

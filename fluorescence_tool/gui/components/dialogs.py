@@ -97,7 +97,7 @@ class ExportDialog(tk.Toplevel):
         self.include_thresholds = tk.BooleanVar(value=True)
         ttk.Checkbutton(
             self.plot_options_frame,
-            text="Include threshold markers",
+            text="Include crossing point markers",
             variable=self.include_thresholds
         ).pack(anchor=tk.W)
         
@@ -257,24 +257,24 @@ class SettingsDialog(tk.Toplevel):
         self.tolerance = tk.StringVar(value=str(self.current_settings.get('tolerance', 1e-8)))
         ttk.Entry(tol_frame, textvariable=self.tolerance, width=15).pack(side=tk.RIGHT)
         
-        # Threshold method
-        threshold_frame = ttk.LabelFrame(analysis_frame, text="Threshold Detection", padding=10)
-        threshold_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        self.threshold_method = tk.StringVar(value=self.current_settings.get('threshold_method', 'derivative'))
-        
+        # Crossing Point method
+        cp_frame = ttk.LabelFrame(analysis_frame, text="Crossing Point Detection", padding=10)
+        cp_frame.pack(fill=tk.X, pady=(0, 10))
+
+        self.threshold_method = tk.StringVar(value=self.current_settings.get('threshold_method', 'qc_second_derivative'))
+
         ttk.Radiobutton(
-            threshold_frame,
-            text="Maximum derivative",
+            cp_frame,
+            text="QC Filter + Second derivative (Recommended)",
             variable=self.threshold_method,
-            value="derivative"
+            value="qc_second_derivative"
         ).pack(anchor=tk.W)
-        
+
         ttk.Radiobutton(
-            threshold_frame,
-            text="Baseline percentage",
+            cp_frame,
+            text="Baseline percentage (Legacy)",
             variable=self.threshold_method,
-            value="baseline_percent"
+            value="linear"
         ).pack(anchor=tk.W)
         
         # Display settings tab
@@ -384,7 +384,7 @@ class SettingsDialog(tk.Toplevel):
         defaults = {
             'max_iterations': 1000,
             'tolerance': 1e-8,
-            'threshold_method': 'derivative',
+            'threshold_method': 'qc_second_derivative',
             'export_dpi': 300,
             'color_scheme': 'default',
             'well_size': 25,
