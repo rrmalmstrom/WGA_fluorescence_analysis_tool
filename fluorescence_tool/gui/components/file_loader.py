@@ -36,6 +36,9 @@ class FileLoader(ttk.Frame):
         self.data_file_status = False
         self.layout_file_status = False
         
+        # QC threshold variable (default 10%)
+        self.qc_threshold_var = tk.StringVar(value="10")
+        
         self._setup_ui()
         
     def _setup_ui(self):
@@ -94,9 +97,28 @@ class FileLoader(ttk.Frame):
         self.layout_status_label = ttk.Label(main_frame, text="●", foreground="red")
         self.layout_status_label.grid(row=2, column=3, sticky="w", pady=(5, 0))
         
+        # QC threshold section
+        ttk.Label(main_frame, text="Min. delta Fluorescence (%):").grid(row=3, column=0, sticky="w", padx=(0, 10), pady=(10, 0))
+        
+        self.qc_threshold_entry = ttk.Entry(
+            main_frame,
+            textvariable=self.qc_threshold_var,
+            width=8,
+            justify="center"
+        )
+        self.qc_threshold_entry.grid(row=3, column=1, sticky="w", padx=(0, 10), pady=(10, 0))
+        
+        qc_help_label = ttk.Label(
+            main_frame,
+            text="Signal must increase this % above baseline to get CP (default: 10%)",
+            foreground="gray",
+            font=("TkDefaultFont", 8)
+        )
+        qc_help_label.grid(row=3, column=2, columnspan=2, sticky="w", padx=(0, 10), pady=(10, 0))
+        
         # Process button and status
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=3, column=0, columnspan=4, sticky="w", pady=(15, 0))
+        button_frame.grid(row=4, column=0, columnspan=4, sticky="w", pady=(15, 0))
         
         self.process_button = ttk.Button(
             button_frame,
@@ -208,7 +230,30 @@ class FileLoader(ttk.Frame):
     def _process_files(self):
         """Process the loaded files and run analysis."""
         if self.data_file_status and self.layout_file_status:
-            self.main_window._run_analysis()
+            # Get QC threshold value from entry field
+            qc_threshold = self.get_qc_threshold()
+            self.main_window._run_analysis(qc_threshold_percent=qc_threshold)
+    
+    def get_qc_threshold(self):
+        """
+        Get the QC threshold percentage from the entry field.
+        
+        Returns:
+            float: QC threshold percentage (default 10.0 if invalid input)
+        """
+        try:
+            threshold = float(self.qc_threshold_var.get())
+            # Validate range (0.1% to 50% seems reasonable)
+            if 0.1 <= threshold <= 50.0:
+                return threshold
+            else:
+                # Reset to default if out of range
+                self.qc_threshold_var.set("10")
+                return 10.0
+        except ValueError:
+            # Reset to default if invalid input
+            self.qc_threshold_var.set("10")
+            return 10.0
             
     def reset_status(self):
         """Reset all file loading status indicators."""

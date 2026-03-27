@@ -225,11 +225,23 @@ class ThresholdAnalyzer:
             
             # Check if maximum signal exceeds the threshold
             max_signal = np.max(fluo_values)
+            min_signal = np.min(fluo_values)
+            signal_range = max_signal - min_signal
             
-            # Signal passes QC if max signal is above the 10% threshold
-            return max_signal >= threshold_value
+            # Calculate actual percentage increase
+            actual_increase_percent = ((max_signal - baseline_value) / baseline_value * 100) if baseline_value > 0 else 0
             
-        except Exception:
+            # Signal passes QC if max signal is above the threshold
+            passes_qc = max_signal >= threshold_value
+            
+            # Optional: Print QC result for debugging (can be removed in production)
+            if not passes_qc:
+                print(f"QC FAIL: Well signal {actual_increase_percent:.1f}% increase (needs {self.baseline_percentage*100:.1f}%)")
+            
+            return passes_qc
+            
+        except Exception as e:
+            print(f"ERROR in QC check: {e}")
             # If calculation fails, assume signal doesn't pass QC
             return False
     

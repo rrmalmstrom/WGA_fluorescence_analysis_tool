@@ -289,14 +289,19 @@ class MainWindow:
         
         return result[0]
         
-    def _run_analysis(self):
-        """Run curve fitting analysis on the data using verified algorithms."""
+    def _run_analysis(self, qc_threshold_percent=10.0):
+        """
+        Run curve fitting analysis on the data using verified algorithms.
+        
+        Args:
+            qc_threshold_percent: QC threshold percentage for signal quality check (default 10.0)
+        """
         if not self.fluorescence_data:
             messagebox.showwarning("Warning", "Please load fluorescence data first")
             return
             
         try:
-            self.update_status("Running analysis...")
+            self.update_status(f"Running analysis (QC threshold: {qc_threshold_percent}%)...")
             self.progress_var.set(10)
             
             # Use the verified analysis pipeline
@@ -304,9 +309,9 @@ class MainWindow:
             from ..algorithms.threshold_analysis import ThresholdAnalyzer
             import numpy as np
             
-            # Initialize analysis components
+            # Initialize analysis components with user-specified QC threshold
             curve_fitter = CurveFitter(timeout_seconds=2)
-            threshold_analyzer = ThresholdAnalyzer(baseline_percentage=0.10)
+            threshold_analyzer = ThresholdAnalyzer(baseline_percentage=qc_threshold_percent/100.0)
             
             self.progress_var.set(20)
             
