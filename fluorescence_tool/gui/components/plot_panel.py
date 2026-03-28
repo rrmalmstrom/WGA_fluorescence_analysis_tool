@@ -643,6 +643,27 @@ class PlotPanel(ttk.Frame):
             except Exception as e:
                 tk.messagebox.showerror("Error", f"Failed to export plot:\\n{str(e)}")
                 
+    def _get_plate_id(self) -> Optional[str]:
+        """
+        Extract the plate ID from the loaded layout data.
+        
+        Returns:
+            The plate_id string if exactly one unique non-empty value exists,
+            otherwise None.
+        """
+        if not self.layout_data:
+            return None
+        
+        plate_ids = set()
+        for well_info in self.layout_data.values():
+            pid = well_info.plate_id
+            if pid and str(pid).strip() and str(pid).strip().lower() != 'nan':
+                plate_ids.add(str(pid).strip())
+        
+        if len(plate_ids) == 1:
+            return plate_ids.pop()
+        return None
+
     def _export_data(self):
         """Export comprehensive analysis data to CSV file using the new format."""
         if not self.analysis_results:
@@ -658,35 +679,60 @@ class PlotPanel(ttk.Frame):
             default=tk.messagebox.NO
         )
         
-        from tkinter import filedialog
+        # Build the auto-generated filename from the plate_id
+        plate_id = self._get_plate_id()
         
-        filename = filedialog.asksaveasfilename(
-            title="Export Analysis Data",
-            defaultextension=".csv",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
-        )
+        if plate_id:
+            # Sanitize plate_id for use in a filename (replace any path-unsafe chars)
+            import re
+            safe_plate_id = re.sub(r'[\\/:*?"<>|]', '_', plate_id)
+            auto_filename = f"{safe_plate_id}_amplification_kinetics_summary.csv"
+            
+            # Save to the directory the script was launched from
+            from pathlib import Path
+            save_dir = Path.cwd()
+            save_path = str(save_dir / auto_filename)
+            
+            # Inform the user of the auto-generated path
+            proceed = tk.messagebox.askyesno(
+                "Save Data",
+                f"The file will be saved as:\n\n{save_path}\n\nProceed?",
+                default=tk.messagebox.YES
+            )
+            if not proceed:
+                return
+            filename = save_path
+        else:
+            # No layout data or ambiguous plate_id — fall back to file dialog
+            from tkinter import filedialog
+            filename = filedialog.asksaveasfilename(
+                title="Export Analysis Data",
+                defaultextension=".csv",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+            )
+            if not filename:
+                return
         
-        if filename:
-            try:
-                # Recalculate pass/fail results with current threshold values before export
-                self._update_pass_fail_analysis()
-                
-                # Use the comprehensive export manager with the new format
-                from ...core.export_manager import ExportManager
-                export_manager = ExportManager()
-                
-                # Export with the latest pass/fail results and unused well preference
-                export_manager.export_analysis_data(
-                    self.analysis_results,
-                    filename,
-                    pass_fail_results=self.pass_fail_results,
-                    include_unused=include_unused
-                )
-                
-                wells_exported = "all wells" if include_unused else "analyzed wells only"
-                self.main_window.update_status(f"Analysis data exported to {filename} ({wells_exported})")
-            except Exception as e:
-                tk.messagebox.showerror("Error", f"Failed to export data:\\n{str(e)}")
+        try:
+            # Recalculate pass/fail results with current threshold values before export
+            self._update_pass_fail_analysis()
+            
+            # Use the comprehensive export manager with the new format
+            from ...core.export_manager import ExportManager
+            export_manager = ExportManager()
+            
+            # Export with the latest pass/fail results and unused well preference
+            export_manager.export_analysis_data(
+                self.analysis_results,
+                filename,
+                pass_fail_results=self.pass_fail_results,
+                include_unused=include_unused
+            )
+            
+            wells_exported = "all wells" if include_unused else "analyzed wells only"
+            self.main_window.update_status(f"Analysis data exported to {filename} ({wells_exported})")
+        except Exception as e:
+            tk.messagebox.showerror("Error", f"Failed to export data:\n{str(e)}")
                 
     def clear_plots(self):
         """Clear all plots and reset to empty state."""

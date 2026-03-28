@@ -155,7 +155,8 @@ class ExportManager:
                     if threshold_result:
                         if hasattr(threshold_result, 'crossing_time'):
                             if threshold_result.crossing_time is not None:
-                                crossing_point = threshold_result.crossing_time
+                                # Round to 1 decimal place for CSV output only
+                                crossing_point = round(threshold_result.crossing_time, 1)
                             else:
                                 # Well failed QC filter - no CP value
                                 crossing_point = 'Failed QC'
@@ -194,16 +195,10 @@ class ExportManager:
                         
                 elif not threshold_result.success:
                     # Well FAILED QC filter - no CP calculated, automatic fail
-                    if hasattr(threshold_result, 'error_message') and threshold_result.error_message:
-                        if 'QC filter failed' in threshold_result.error_message:
-                            pass_fail_status = 'Fail (QC)'  # Failed QC filter
-                        else:
-                            pass_fail_status = 'Fail (Analysis)'  # Other analysis error
-                    else:
-                        pass_fail_status = 'Fail (QC)'
+                    pass_fail_status = 'Fail'
                 else:
                     # Edge case: success=False but no error message
-                    pass_fail_status = 'Fail (Analysis)'
+                    pass_fail_status = 'Fail'
             else:
                 # No threshold result - fallback to GUI thresholds only
                 pass_fail_status = pass_fail_dict.get(well_id, 'N/A')

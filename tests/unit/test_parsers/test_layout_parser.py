@@ -171,7 +171,7 @@ class TestLayoutParser:
         empty_file = tmp_path / "empty_layout.csv"
         empty_file.write_text("Plate_ID,Well_Row,Well_Col,Well,Sample,Type\n")
 
-        with pytest.raises(ValueError, match="No valid well information found"):
+        with pytest.raises(ValueError, match="Plate_ID"):
             parser.parse_file(str(empty_file))
     
     def test_bom_handling(self, parser, tmp_path):

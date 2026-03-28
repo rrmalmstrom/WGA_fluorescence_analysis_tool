@@ -130,7 +130,7 @@ Cycle	A1	A2	A3	A4	...	P24
 Required for both formats to provide well classification and grouping information.
 
 **Required Columns** (must all be present — file will be rejected if any are missing):
-- `Plate_ID`: Identifier matching your data file
+- `Plate_ID`: Identifier for the plate. **Must contain exactly one unique, non-empty value across all rows.** Files with an empty `Plate_ID` column or with more than one distinct `Plate_ID` value will be rejected at load time.
 - `Well_Row`: Row letter (A, B, C, ...)
 - `Well_Col`: Column number (1, 2, 3, ...)
 - `Well`: Combined well ID (A1, B2, C3, ...)
@@ -657,13 +657,20 @@ Before exporting, you can customize what appears in the plot:
 
 ### Export File Naming
 
-The tool automatically generates descriptive filenames:
+**CSV Data Export** — The filename is generated automatically from the `Plate_ID` in the loaded layout file:
 
-**Format**: `{PlateID}_{ExportType}_{WellCount}wells_{Timestamp}.{ext}`
+**Format**: `{Plate_ID}_amplification_kinetics_summary.csv`
 
-**Examples**:
-- `RM5097_analysis_24wells_20240315_143022.csv`
-- `RM5097_plot_12wells_20240315_143045.pdf`
+**Example**: If your layout file contains `Plate_ID = Killer_plate_1`, the exported file will be named:
+```
+Killer_plate_1_amplification_kinetics_summary.csv
+```
+
+The file is saved to the directory from which the application was launched. A confirmation dialog shows the full save path before writing.
+
+> **Note:** If no layout file has been loaded, the tool falls back to a standard Save As dialog so you can choose the filename and location manually.
+
+**Plot Export** — A standard Save As dialog is used; choose any filename and format (PDF, PNG, SVG, EPS).
 
 ### Export Tips
 
@@ -708,11 +715,13 @@ The system uses dual criteria that both must be met for a well to pass:
 
 For each analyzed well, you get:
 
-**Overall Status**: PASS or FAIL
+**Overall Status**: `Pass` or `Fail`
 **CP Status**: Whether crossing point criterion was met
 **Fluorescence Status**: Whether fluorescence change criterion was met
 **Values Used**: Actual CP and fluorescence change values
 **Failure Reason**: Specific reason if well failed
+
+> **Note:** Wells that do not pass the initial QC fluorescence-change filter (i.e. no crossing point is calculated) are automatically assigned `Fail` in the exported CSV. The `Pass_Fail` column contains only `Pass`, `Fail`, or `N/A` — no sub-categories.
 
 #### Example Results
 

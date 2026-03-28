@@ -45,6 +45,24 @@ class LayoutParser:
             if missing_cols:
                 raise ValueError(f"Missing required columns: {missing_cols}")
             
+            # Validate Plate_ID column: must have exactly one unique non-empty value
+            plate_id_values = df['Plate_ID'].dropna().astype(str).str.strip()
+            plate_id_values = plate_id_values[plate_id_values.str.lower() != 'nan']
+            plate_id_values = plate_id_values[plate_id_values != '']
+            
+            if plate_id_values.empty:
+                raise ValueError(
+                    "The 'Plate_ID' column is empty or contains only missing values.\n"
+                    "Every row must have a valid Plate_ID."
+                )
+            
+            unique_plate_ids = plate_id_values.unique()
+            if len(unique_plate_ids) > 1:
+                raise ValueError(
+                    "The 'Plate_ID' column contains more than one unique value. "
+                    "All rows must share the same single Plate_ID."
+                )
+            
             # Parse well information
             well_info_dict = {}
             
