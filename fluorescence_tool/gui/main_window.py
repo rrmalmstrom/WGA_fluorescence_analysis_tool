@@ -418,43 +418,40 @@ class MainWindow:
                     # Extract fluorescence values for this well
                     fluo_values = self.fluorescence_data.measurements[i, :]
                     
-                    # Perform curve fitting
-                    curve_result = curve_fitter.fit_curve(time_points, fluo_values)
+                    # Perform curve fitting (two-path: polynomial for QC-failing, sigmoid for QC-passing)
+                    curve_result = curve_fitter.fit_curve(
+                        time_points, fluo_values,
+                        qc_threshold_percent=qc_threshold_percent
+                    )
                     
-                    # Generate fitted curve from parameters if successful
+                    # Generate fitted curve array for display
                     fitted_curve = None
-                    if curve_result.success and curve_result.parameters:
+                    if curve_result.parameters:
                         try:
-                            fitted_curve = curve_fitter.sigmoid_5param(
-                                time_points, *curve_result.parameters)
-                        except Exception as e:
-                            # print(f"Warning: Could not generate fitted curve for {well_id}: {e}")
+                            if curve_result.fit_type == "polynomial":
+                                # Polynomial: use numpy polyval with stored coefficients
+                                fitted_curve = np.polyval(curve_result.parameters, time_points)
+                            else:
+                                # Sigmoid: use 5-parameter sigmoid function
+                                fitted_curve = curve_fitter.sigmoid_5param(
+                                    time_points, *curve_result.parameters)
+                        except Exception:
                             pass
                     
-                    # Perform crossing point analysis using second derivative method
-                    # CRITICAL FIX: Pass the fitted curve parameters to ensure consistency
-                    # print(f"\n=== DEBUG: Analyzing well {well_id} ===")
-                    # print(f"Curve fit success: {curve_result.success}")
-                    if curve_result.success and curve_result.parameters:
-                        # print(f"Using analyze_threshold_crossing_with_fitted_curve")
-                        # print(f"Parameters: {curve_result.parameters}")
+                    # Perform crossing point analysis — only for sigmoid fits that passed QC
+                    if (curve_result.success and
+                            curve_result.parameters and
+                            curve_result.fit_type == "sigmoid"):
                         # Use the same fitted curve for CP calculation as for plotting
                         threshold_result = threshold_analyzer.analyze_threshold_crossing_with_fitted_curve(
                             time_points, fluo_values, curve_result.parameters, method="qc_second_derivative")
                     else:
-                        # print(f"Curve fitting failed - no crossing point calculated")
-                        # No fallback - if curve fitting fails, no crossing point
-                        from ..core.models import ThresholdResult
+                        # Polynomial fits and failed sigmoid fits get no CP
+                        from ..algorithms.threshold_analysis import ThresholdResult
                         threshold_result = ThresholdResult(
                             success=False,
-                            error_message="Curve fitting failed - no crossing point calculated"
+                            error_message="No CP: well did not pass QC threshold or sigmoid fit failed"
                         )
-                    
-                    # print(f"Threshold result success: {threshold_result.success}")
-                    if threshold_result.success:
-                        # print(f"Crossing time: {threshold_result.crossing_time}")
-                        # print(f"Threshold value: {threshold_result.threshold_value}")
-                        pass
                     
                     # Store results
                     self.analysis_results['curve_fits'][well_id] = {

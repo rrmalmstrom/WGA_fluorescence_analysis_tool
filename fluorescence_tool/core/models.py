@@ -66,7 +66,7 @@ class PassFailThresholds:
     Defines the criteria for determining whether a well passes or fails
     based on crossing point (CP) and fluorescence change values.
     """
-    cp_threshold: float = 400.0        # CP threshold in minutes (below = PASS)
+    cp_threshold: float = 6.5          # CP threshold in hours (below = PASS)
     fluorescence_change_threshold: float = 500.0  # Fluorescence change threshold (above = PASS)
     enabled: bool = True               # Whether pass/fail analysis is enabled
     

@@ -690,7 +690,7 @@ The tool includes an advanced pass/fail analysis system for automated quality co
 The system uses dual criteria that both must be met for a well to pass:
 
 #### Criterion 1: Crossing Point (CP)
-- **Threshold**: CP < 400 minutes (6.67 hours) by default
+- **Threshold**: CP < 6.5 hours by default
 - **Logic**: Faster growth indicates active/viable samples
 - **Configurable**: Can be adjusted based on your assay requirements
 
@@ -715,16 +715,16 @@ For each analyzed well, you get:
 
 ```
 Well A1: PASS
-- CP: 245.3 min (< 400 min) ✓
+- CP: 4.09 h (< 6.5 h) ✓
 - Fluorescence Change: 1234.5 RFU (> 500 RFU) ✓
 
 Well B2: FAIL
-- CP: 456.7 min (≥ 400 min) ✗
+- CP: 7.61 h (≥ 6.5 h) ✗
 - Fluorescence Change: 1876.2 RFU (> 500 RFU) ✓
-- Reason: CP 456.7 >= 400
+- Reason: CP 7.61 >= 6.5
 
 Well C3: FAIL
-- CP: 234.1 min (< 400 min) ✓
+- CP: 3.90 h (< 6.5 h) ✓
 - Fluorescence Change: 234.5 RFU (≤ 500 RFU) ✗
 - Reason: Fluorescence change 234.5 <= 500
 ```
@@ -736,8 +736,8 @@ Well C3: FAIL
 The default thresholds work well for many assays, but you can customize them:
 
 **CP Threshold Considerations**
-- **Faster assays**: Lower threshold (e.g., 300 minutes)
-- **Slower assays**: Higher threshold (e.g., 600 minutes)
+- **Faster assays**: Lower threshold (e.g., 4.0 hours)
+- **Slower assays**: Higher threshold (e.g., 8.0 hours)
 - **Based on controls**: Set based on positive control performance
 
 **Fluorescence Change Considerations**
@@ -748,13 +748,13 @@ The default thresholds work well for many assays, but you can customize them:
 #### Assay-Specific Optimization
 
 **Cell Viability Assays**
-- CP threshold: 300-400 minutes
-- Fluorescence change: 500-1000 RFU
+- CP threshold: 5.0–6.5 hours
+- Fluorescence change: 500–1000 RFU
 - Focus on early detection of viable cells
 
 **Drug Screening Assays**
-- CP threshold: 400-600 minutes
-- Fluorescence change: 200-500 RFU
+- CP threshold: 6.5–10.0 hours
+- Fluorescence change: 200–500 RFU
 - Balance sensitivity with specificity
 
 **Quality Control Applications**

@@ -178,23 +178,24 @@ class TestCurveFitter:
             pytest.skip("Real BMG test data not available")
         
         parser = BMGOmega3Parser()
-        data = parser.parse_file(bmg_file)
+        data = parser.parse_file(str(bmg_file))
         
         fitter = CurveFitter()
         
-        # Test fitting on first well with data
-        for well_data in data.wells:
-            if len(well_data.measurements) > 10:  # Ensure sufficient data
-                time_points = np.array([m.time for m in well_data.measurements])
-                fluo_values = np.array([m.value for m in well_data.measurements])
-                
-                result = fitter.fit_curve(time_points, fluo_values)
-                
-                # Should be able to process real data
-                assert isinstance(result, CurveFitResult)
-                break
+        # data.wells is a list of well ID strings; data.measurements is a 2D numpy array
+        assert len(data.wells) > 0, "No wells found in BMG data"
+        assert len(data.time_points) > 10, "Insufficient time points in BMG data"
+        
+        time_points = np.array(data.time_points)
+        
+        # Test fitting on the first well
+        fluo_values = data.measurements[0, :]
+        result = fitter.fit_curve(time_points, fluo_values)
+        
+        # Should be able to process real data and return a CurveFitResult
+        assert isinstance(result, CurveFitResult)
     
-    @pytest.mark.integration  
+    @pytest.mark.integration
     def test_with_real_biorad_data(self):
         """Test curve fitting with real BioRad data file."""
         test_data_dir = Path(__file__).parent.parent.parent.parent / "test_data"
@@ -204,21 +205,22 @@ class TestCurveFitter:
             pytest.skip("Real BioRad test data not available")
         
         parser = BioRadParser()
-        data = parser.parse_file(biorad_file, cycle_time_minutes=1.0)
+        data = parser.parse_file(str(biorad_file), cycle_time_minutes=1.0)
         
         fitter = CurveFitter()
         
-        # Test fitting on first well with data
-        for well_data in data.wells:
-            if len(well_data.measurements) > 10:  # Ensure sufficient data
-                time_points = np.array([m.time for m in well_data.measurements])
-                fluo_values = np.array([m.value for m in well_data.measurements])
-                
-                result = fitter.fit_curve(time_points, fluo_values)
-                
-                # Should be able to process real data
-                assert isinstance(result, CurveFitResult)
-                break
+        # data.wells is a list of well ID strings; data.measurements is a 2D numpy array
+        assert len(data.wells) > 0, "No wells found in BioRad data"
+        assert len(data.time_points) > 10, "Insufficient time points in BioRad data"
+        
+        time_points = np.array(data.time_points)
+        
+        # Test fitting on the first well
+        fluo_values = data.measurements[0, :]
+        result = fitter.fit_curve(time_points, fluo_values)
+        
+        # Should be able to process real data and return a CurveFitResult
+        assert isinstance(result, CurveFitResult)
     
     def test_timeout_protection(self):
         """Test that curve fitting has timeout protection."""

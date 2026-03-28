@@ -23,6 +23,7 @@ class CurveFitResult:
     error_message: Optional[str] = None
     covariance_matrix: Optional[np.ndarray] = None
     fit_error: Optional[float] = None
+    fit_type: str = "sigmoid"  # "sigmoid" or "polynomial"
     # Additional fluorescence metrics
     baseline_fluorescence: Optional[float] = None
     final_fluorescence: Optional[float] = None
@@ -134,136 +135,195 @@ class CurveFitter:
         
         return baseline_fluorescence, final_fluorescence, fluorescence_change, percent_change
     
-    def _timeout_handler(self, signum, frame):
-        """Signal handler for timeout."""
-        raise TimeoutException("Curve fitting timed out")
-    
-    def _get_fit_strategies(self, time_points: np.ndarray, fluo_values: np.ndarray) -> List[Dict[str, Any]]:
+    def polynomial_3param(self, x: np.ndarray, a: float, b: float, c: float, d: float) -> np.ndarray:
         """
-        Get fitting strategies based on analyze_fluorescence_data.py.
+        3rd degree polynomial function for QC-failing wells.
         
-        Returns list of fitting attempts with different initial parameters and bounds.
+        Args:
+            x: Independent variable (time points)
+            a, b, c, d: Polynomial coefficients (d + c*x + b*x^2 + a*x^3)
+            
+        Returns:
+            Calculated y values
         """
-        return [
-            {
-                "name": "Standard fit",
-                "initial_guess": [
-                    np.max(fluo_values) - np.min(fluo_values),  # a: range of values
-                    1.0,  # b: growth rate
-                    time_points[np.argmax(fluo_values)],  # c: midpoint
-                    np.min(fluo_values),  # d: baseline
-                    0.0  # e: linear component
-                ],
-                "bounds": ([0, 0, min(time_points), min(fluo_values), -np.inf],
-                          [np.inf, np.inf, max(time_points), max(fluo_values), np.inf])
-            },
-            {
-                "name": "Steep curve fit",
-                "initial_guess": [
-                    np.max(fluo_values) - np.min(fluo_values),
-                    -1.0,  # Try negative growth rate for steeper curve
-                    time_points[np.argmax(fluo_values)],
-                    np.min(fluo_values),
-                    0.0
-                ],
-                "bounds": ([0, -10, min(time_points), min(fluo_values), -np.inf],
-                          [np.inf, 10, max(time_points), max(fluo_values), np.inf])
-            },
-            {
-                "name": "Wide range fit",
-                "initial_guess": [
-                    np.max(fluo_values) - np.min(fluo_values),
-                    0.5,  # Different initial growth rate
-                    time_points[len(time_points)//2],  # Midpoint estimate
-                    np.min(fluo_values),
-                    0.0
-                ],
-                "bounds": ([0, -5, min(time_points), min(fluo_values), -np.inf],
-                          [np.inf, 5, max(time_points), max(fluo_values), np.inf])
-            }
-        ]
+        return d + c*x + b*x**2 + a*x**3
     
-    def fit_curve(self, time_points: np.ndarray, fluo_values: np.ndarray) -> CurveFitResult:
+    def fit_polynomial(self, time_points: np.ndarray, fluo_values: np.ndarray) -> CurveFitResult:
         """
-        Fit sigmoidal curve using adaptive fitting strategies.
-        
-        Based on the proven implementation in analyze_fluorescence_data.py.
+        Fit cubic polynomial to QC-failing wells (fast, no iteration).
         
         Args:
             time_points: Array of time values
             fluo_values: Array of fluorescence values
             
         Returns:
+            CurveFitResult with polynomial fit
+        """
+        try:
+            # Fit cubic polynomial using numpy (closed-form solution, no iteration)
+            poly_coeffs = np.polyfit(time_points, fluo_values, deg=3)
+            
+            # Calculate fitted values and R-squared
+            fitted_values = np.polyval(poly_coeffs, time_points)
+            r_squared = self.calculate_r_squared(fluo_values, fitted_values)
+            
+            # Calculate fluorescence change metrics
+            baseline_fluor, final_fluor, fluor_change, percent_change = self.calculate_fluorescence_change(fluo_values)
+            
+            return CurveFitResult(
+                success=True,
+                parameters=poly_coeffs.tolist(),  # [a, b, c, d] for a*x^3 + b*x^2 + c*x + d
+                r_squared=r_squared,
+                strategy_used="Polynomial fit",
+                fit_type="polynomial",
+                baseline_fluorescence=baseline_fluor,
+                final_fluorescence=final_fluor,
+                fluorescence_change=fluor_change,
+                percent_change=percent_change
+            )
+            
+        except Exception as e:
+            return CurveFitResult(
+                success=False,
+                error_message=f"Polynomial fit failed: {e}",
+                fit_type="polynomial"
+            )
+
+    def _timeout_handler(self, signum, frame):
+        """Signal handler for timeout."""
+        raise TimeoutException("Curve fitting timed out")
+    
+    def _estimate_inflection_point(self, time_points: np.ndarray, fluo_values: np.ndarray) -> float:
+        """
+        Estimate the inflection point (time of maximum rate of change).
+        
+        Uses the index of maximum first difference to find where the curve
+        rises or falls fastest. This gives a much better initial guess for
+        the sigmoid parameter c than using argmax(fluo_values).
+        
+        Args:
+            time_points: Array of time values
+            fluo_values: Array of fluorescence values
+            
+        Returns:
+            Estimated time of inflection point
+        """
+        diffs = np.abs(np.diff(fluo_values))
+        if len(diffs) == 0:
+            return time_points[len(time_points) // 2]
+        inflection_idx = np.argmax(diffs)
+        # Return the midpoint between the two time points straddling the max diff
+        return (time_points[inflection_idx] + time_points[inflection_idx + 1]) / 2.0
+
+    def fit_curve(self, time_points: np.ndarray, fluo_values: np.ndarray,
+                  qc_threshold_percent: float = 10.0) -> CurveFitResult:
+        """
+        Two-path curve fitting based on QC pre-check.
+        
+        Path A (QC-failing wells, |percent_change| < qc_threshold_percent):
+            Fits a fast cubic polynomial — no iteration, always succeeds,
+            suitable for display of flat/declining/barely-changing wells.
+            Returns success=True with fit_type="polynomial".
+        
+        Path B (QC-passing wells, |percent_change| >= qc_threshold_percent):
+            Fits a 5-parameter sigmoid using a smart initial guess derived
+            from the inflection point of the data. Uses maxfev=200 with one
+            fallback attempt. Returns success=True with fit_type="sigmoid"
+            when a CP can be calculated.
+        
+        Args:
+            time_points: Array of time values
+            fluo_values: Array of fluorescence values
+            qc_threshold_percent: Minimum percent change to attempt sigmoid fit
+            
+        Returns:
             CurveFitResult with fitting results
         """
         try:
-            # Check if there's enough variation in the data to fit a curve
+            # Check if there's enough variation in the data to fit any curve
             if np.max(fluo_values) - np.min(fluo_values) < 0.1:
                 return CurveFitResult(
                     success=False,
                     error_message="Insufficient variation in data for curve fitting"
                 )
             
-            # Get fitting strategies
-            fit_attempts = self._get_fit_strategies(time_points, fluo_values)
+            # Calculate fluorescence change metrics (used for QC pre-check)
+            baseline_fluor, final_fluor, fluor_change, percent_change = self.calculate_fluorescence_change(fluo_values)
+            
+            # --- PATH A: QC-failing wells — fast polynomial fit ---
+            if abs(percent_change) < qc_threshold_percent:
+                return self.fit_polynomial(time_points, fluo_values)
+            
+            # --- PATH B: QC-passing wells — smart sigmoid fit ---
+            amplitude = np.max(fluo_values) - np.min(fluo_values)
+            baseline = np.min(fluo_values)
+            
+            # Smart inflection point estimate: time of maximum rate of change
+            c_inflection = self._estimate_inflection_point(time_points, fluo_values)
+            
+            # Slope direction: positive if curve rises overall, negative if it falls
+            b_init = 1.0 if fluor_change >= 0 else -1.0
+            
+            # Shared bounds: allow both rising and falling slopes
+            bounds = (
+                [0, -10, min(time_points), min(fluo_values), -np.inf],
+                [np.inf, 10, max(time_points), max(fluo_values), np.inf]
+            )
+            
+            # Strategy 1: inflection-point-based initial guess
+            strategies = [
+                {
+                    "name": "Inflection point fit",
+                    "p0": [amplitude, b_init, c_inflection, baseline, 0.0],
+                },
+                # Fallback: midpoint of time range as c estimate
+                {
+                    "name": "Midpoint fallback fit",
+                    "p0": [amplitude, b_init, time_points[len(time_points) // 2], baseline, 0.0],
+                },
+            ]
             
             best_fit = None
             best_error = float('inf')
             best_strategy = None
             
-            # Try each fit attempt
-            for attempt in fit_attempts:
-                # Set timeout for curve fitting
-                signal.signal(signal.SIGALRM, self._timeout_handler)
-                signal.alarm(self.timeout_seconds)
-                
+            for attempt in strategies:
                 try:
                     popt, pcov = curve_fit(
                         self.sigmoid_5param, time_points, fluo_values,
-                        p0=attempt["initial_guess"], maxfev=5000,
-                        bounds=attempt["bounds"]
+                        p0=attempt["p0"], maxfev=200,
+                        bounds=bounds
                     )
-                    signal.alarm(0)  # Cancel alarm
                     
-                    # Check if covariance could be estimated
+                    # Validate covariance and parameters
                     if pcov is None or not np.all(np.isfinite(pcov)):
-                        # print(f"Warning: {attempt['name']} - Covariance could not be estimated")
                         continue
-                    
-                    # Check if parameters are reasonable
                     if not np.all(np.isfinite(popt)) or any(p == 0 for p in popt[:4]):
-                        # print(f"Warning: {attempt['name']} - Unreasonable parameters")
                         continue
                     
-                    # Calculate fit error
                     error = self.calculate_fit_error(time_points, fluo_values, popt)
-                    
-                    # Update best fit if this one has lower error
                     if error < best_error:
                         best_error = error
                         best_fit = (popt, pcov, error)
                         best_strategy = attempt["name"]
-                
-                except TimeoutException:
-                    # print(f"Warning: {attempt['name']} - Curve fitting timed out")
-                    signal.alarm(0)
-                except Exception as e:
-                    # print(f"Warning: {attempt['name']} - Error fitting curve: {e}")
-                    signal.alarm(0)
+                    
+                    # Accept first good fit immediately (no need to try fallback)
+                    break
+                    
+                except Exception:
+                    continue
             
-            # If no good fit was found, return failure
+            # If sigmoid fit failed, fall back to polynomial for display
             if best_fit is None:
-                return CurveFitResult(
-                    success=False,
-                    error_message="No successful curve fit found with any strategy"
-                )
+                poly_result = self.fit_polynomial(time_points, fluo_values)
+                # Override success=False so CP is not calculated, but curve is displayed
+                poly_result.success = False
+                poly_result.error_message = "Sigmoid fit failed after all strategies; polynomial shown for display"
+                return poly_result
             
             popt, pcov, fit_error = best_fit
-            
-            # Calculate R-squared
             fitted_values = self.sigmoid_5param(time_points, *popt)
             
-            # Check if fitted values are valid
             if not np.all(np.isfinite(fitted_values)):
                 return CurveFitResult(
                     success=False,
@@ -272,9 +332,6 @@ class CurveFitter:
             
             r_squared = self.calculate_r_squared(fluo_values, fitted_values)
             
-            # Calculate fluorescence change metrics
-            baseline_fluor, final_fluor, fluor_change, percent_change = self.calculate_fluorescence_change(fluo_values)
-            
             return CurveFitResult(
                 success=True,
                 parameters=popt.tolist(),
@@ -282,6 +339,7 @@ class CurveFitter:
                 strategy_used=best_strategy,
                 covariance_matrix=pcov,
                 fit_error=fit_error,
+                fit_type="sigmoid",
                 baseline_fluorescence=baseline_fluor,
                 final_fluorescence=final_fluor,
                 fluorescence_change=fluor_change,

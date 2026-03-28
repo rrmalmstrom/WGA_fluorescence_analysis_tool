@@ -95,69 +95,55 @@ Where:
 
 ### Fitting Strategy
 
-#### Multi-Strategy Approach
+#### Two-Path Approach
 
-The algorithm employs three fitting strategies in sequence:
+The algorithm uses a QC-based pre-check to route each well to the appropriate fitting path before any iterative optimization is attempted:
 
-**Strategy 1: Standard Fit**
+**Path A: Polynomial Fit (QC-Failing Wells)**
+
+Wells where `|percent_change| < qc_threshold_percent` (default 10%) show flat or declining fluorescence and cannot support a meaningful sigmoid fit. These wells are immediately routed to a cubic polynomial fit using `numpy.polyfit(deg=3)`:
+
 ```python
-# Initial parameter estimation
-a_init = max(measurements) - min(measurements)
-b_init = 1.0
-c_init = time_points[np.argmax(np.gradient(measurements))]
-d_init = min(measurements)
-e_init = 0.0
-
-# Parameter bounds
-bounds = (
-    [0, 0.1, min(time_points), min(measurements), -np.inf],
-    [np.inf, 10, max(time_points), max(measurements), np.inf]
-)
+# Fast, non-iterative cubic polynomial fit
+coeffs = np.polyfit(time_points, fluo_values, deg=3)
+fitted_curve = np.polyval(coeffs, time_points)
+# Returns CurveFitResult(success=False, fit_type="polynomial")
+# No crossing point is calculated for these wells
 ```
 
-**Strategy 2: Steep Curve Fit**
+This path is instantaneous (no iteration) and always succeeds.
+
+**Path B: Sigmoid Fit (QC-Passing Wells)**
+
+Wells with sufficient fluorescence change are fitted with the 5-parameter sigmoid using an inflection-point-based initial guess and a tight `maxfev=200` limit:
+
 ```python
-# For rapid growth patterns
-b_init = -1.0  # Negative slope for steep curves
+# Estimate inflection point from maximum absolute derivative
+inflection_idx = np.argmax(np.abs(np.diff(fluo_values)))
+c_init = time_points[inflection_idx]
+
+# Fit with bounded slope (both positive and negative allowed)
 bounds = (
-    [0, -10, min(time_points), min(measurements), -np.inf],
-    [np.inf, 10, max(time_points), max(measurements), np.inf]
+    [0, -10, min(time_points), min(fluo_values), -np.inf],
+    [np.inf, 10, max(time_points), max(fluo_values), np.inf]
 )
+popt, _ = curve_fit(sigmoid_5param, time_points, fluo_values,
+                    p0=[a_init, b_init, c_init, d_init, 0.0],
+                    bounds=bounds, maxfev=200)
 ```
 
-**Strategy 3: Wide Range Fit**
-```python
-# For unusual parameter ranges
-c_init = time_points[len(time_points)//2]  # Midpoint estimate
-bounds = (
-    [0, -5, min(time_points), min(measurements), -np.inf],
-    [np.inf, 5, max(time_points), max(measurements), np.inf]
-)
-```
+If the sigmoid fit fails, a polynomial fallback is used for display purposes only (`success=False`).
 
 #### Optimization Algorithm
 
 **Levenberg-Marquardt Method**
 - Uses `scipy.optimize.curve_fit` with Levenberg-Marquardt algorithm
 - Robust convergence for nonlinear least squares problems
-- Handles both over-determined and under-determined systems
+- `maxfev=200` limit prevents runaway fitting on flat/noisy data
 
-**Timeout Protection**
-```python
-import signal
+**Why Not `signal.SIGALRM` for Timeout?**
 
-def timeout_handler(signum, frame):
-    raise TimeoutException("Curve fitting timed out")
-
-signal.signal(signal.SIGALRM, timeout_handler)
-signal.alarm(timeout_seconds)  # Default: 2 seconds
-
-try:
-    popt, pcov = curve_fit(sigmoid_5param, x_data, y_data, 
-                          p0=initial_guess, bounds=bounds, maxfev=5000)
-finally:
-    signal.alarm(0)  # Cancel timeout
-```
+`scipy.optimize.curve_fit` calls Fortran MINPACK routines that do not release the Python GIL and do not check Python signals. `signal.SIGALRM` therefore cannot interrupt these routines. The `maxfev` parameter is the correct mechanism for bounding iteration count.
 
 ### Quality Assessment
 
@@ -433,9 +419,9 @@ A well passes if and only if BOTH criteria are met:
 PASS = (CP < CP_threshold) AND (ΔF > ΔF_threshold)
 
 where:
-CP = crossing_point (minutes)
+CP = crossing_point (hours)
 ΔF = fluorescence_change (final - initial fluorescence)
-CP_threshold = 400 minutes (default)
+CP_threshold = 6.5 hours (default)
 ΔF_threshold = 500 RFU (default)
 ```
 
@@ -450,7 +436,7 @@ CP_threshold = 400 minutes (default)
 
 | Criterion | Default Value | Rationale |
 |-----------|---------------|-----------|
-| CP < 400 min | 6.67 hours | Typical viable cell response time |
+| CP < 6.5 h | 6.5 hours | Typical viable cell response time |
 | ΔF > 500 RFU | 500 units | Above typical instrument noise |
 
 ### Statistical Validation

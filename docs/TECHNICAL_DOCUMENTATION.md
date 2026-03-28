@@ -209,8 +209,9 @@ Results from 5-parameter sigmoid curve fitting.
 class CurveFitResult:
     """Result of curve fitting operation."""
     success: bool
-    parameters: Optional[List[float]] = None      # [a, b, c, d, e]
+    parameters: Optional[List[float]] = None      # [a, b, c, d, e] for sigmoid; poly coeffs for polynomial
     r_squared: Optional[float] = None             # Goodness of fit
+    fit_type: str = "sigmoid"                     # "sigmoid" or "polynomial"
     strategy_used: Optional[str] = None           # Fitting strategy
     error_message: Optional[str] = None           # Error details
     covariance_matrix: Optional[np.ndarray] = None
@@ -244,7 +245,7 @@ class PassFailResult:
     """
     well_id: str
     passed: bool                       # True if well passed, False if failed
-    cp_value: Optional[float]          # Crossing point value used (minutes)
+    cp_value: Optional[float]          # Crossing point value used (hours)
     fluorescence_change_value: Optional[float] # Fluorescence change value used
     cp_passed: bool                    # Whether CP criterion was met
     fluorescence_change_passed: bool   # Whether fluorescence change criterion was met
@@ -1001,7 +1002,8 @@ def log_performance_metrics(operation: str, duration: float, data_size: int) -> 
 - Memory usage: <2GB for typical datasets
 
 **Performance Targets**
-- Curve fitting: <2 seconds per well
+- Curve fitting: <0.01 seconds per well (two-path approach)
+- Full 96-well plate analysis: <1 second total
 - File loading: <10 seconds for 384-well plate
 - GUI responsiveness: <100ms for user interactions
 - Export operations: <30 seconds for complete analysis

@@ -304,7 +304,7 @@ class PlotPanel(ttk.Frame):
         """Handle changes to pass/fail threshold values."""
         try:
             # Get current values from GUI
-            cp_threshold = float(self.cp_threshold_var.get()) if self.cp_threshold_var.get() else 400.0
+            cp_threshold = float(self.cp_threshold_var.get()) if self.cp_threshold_var.get() else 6.5
             fluor_threshold = float(self.fluor_threshold_var.get()) if self.fluor_threshold_var.get() else 500.0
             enabled = self.pass_fail_enabled_var.get()
             
@@ -465,10 +465,11 @@ class PlotPanel(ttk.Frame):
                         # Check if this is second derivative method (no threshold_value for plotting)
                         is_second_derivative = (threshold_result and
                                               threshold_result.crossing_method == "qc_second_derivative" and
-                                              curve_result and curve_result.success and curve_result.parameters)
+                                              curve_result and curve_result.success and curve_result.parameters and
+                                              getattr(curve_result, 'fit_type', 'sigmoid') == 'sigmoid')
                         
                         if is_second_derivative:
-                            # Second derivative method: ALWAYS calculate fluorescence using sigmoid equation
+                            # Second derivative method: calculate fluorescence using sigmoid equation
                             # This ensures CP is plotted exactly on the fitted curve
                             from ...algorithms.curve_fitting import CurveFitter
                             curve_fitter = CurveFitter()
