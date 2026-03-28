@@ -129,25 +129,28 @@ Cycle	A1	A2	A3	A4	...	P24
 #### Layout File (.csv)
 Required for both formats to provide well classification and grouping information.
 
-**Required Columns:**
+**Required Columns** (must all be present — file will be rejected if any are missing):
 - `Plate_ID`: Identifier matching your data file
 - `Well_Row`: Row letter (A, B, C, ...)
 - `Well_Col`: Column number (1, 2, 3, ...)
 - `Well`: Combined well ID (A1, B2, C3, ...)
+- `Sample`: Sample identifier or name (may be empty for unused wells)
 - `Type`: Well classification (sample, neg_cntrl, pos_cntrl, unused, blank)
 
 **Optional Columns:**
-- `Sample`: Sample identifier or name
 - `number_of_cells/capsules`: Cell count information
 - `Group_1`, `Group_2`, `Group_3`: Hierarchical grouping for analysis
+
+> **Note:** The `Sample` column must appear between `Well` and `Type` in the CSV header.
+> Layout files that do not include the `Sample` column will be rejected with an error.
 
 **Example Layout File:**
 ```csv
 Plate_ID,Well_Row,Well_Col,Well,Sample,Type,number_of_cells/capsules,Group_1,Group_2,Group_3
-RM5097,A,1,A1,Sample1,sample,100,Rep1,BONCAT,Treatment1
-RM5097,A,2,A2,Sample2,sample,100,Rep1,BONCAT,Treatment2
-RM5097,B,1,B1,Control1,neg_cntrl,0,Rep1,Control,
-RM5097,B,2,B2,,unused,,,,
+Killer_plate_1,A,1,A1,,unused,,,,
+Killer_plate_1,D,2,D2,TEXAS_1,neg_cntrl,0,sheath,,
+Killer_plate_1,H,2,H2,TEXAS_1,pos_cntrl,0,DNA,,
+Killer_plate_1,D,3,D3,TEXAS_1,sample,100,Rep1,BONCAT,Big
 ```
 
 ### Step-by-Step File Loading
@@ -823,15 +826,17 @@ Common issues and their solutions for smooth operation of the fluorescence analy
 
 **Symptoms**: Error when processing layout file
 **Causes**:
-- Missing required column headers
+- Missing required column headers (including the `Sample` column)
 - Misspelled column names
 - Extra spaces in headers
+- Using an older layout file format that pre-dates the `Sample` column
 
 **Solutions**:
-1. Check required columns: Plate_ID, Well_Row, Well_Col, Well, Type
-2. Verify exact spelling (case-sensitive)
-3. Remove extra spaces from column headers
-4. Save as CSV with UTF-8 encoding
+1. Check all required columns are present: `Plate_ID`, `Well_Row`, `Well_Col`, `Well`, `Sample`, `Type`
+2. Ensure `Sample` appears between `Well` and `Type` in the header row
+3. Verify exact spelling (case-sensitive)
+4. Remove extra spaces from column headers
+5. Save as CSV with UTF-8 encoding
 
 #### "Well mismatch between data and layout"
 

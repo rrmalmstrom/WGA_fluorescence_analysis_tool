@@ -1,7 +1,7 @@
 """
 Unit tests for core data models.
 
-Following TDD methodology - these tests are written first and should initially fail.
+Tests validate the current data model implementations in models.py.
 """
 
 import pytest
@@ -10,7 +10,6 @@ from fluorescence_tool.core.models import (
     FileFormat,
     FluorescenceData,
     WellInfo,
-    CurveFitResult
 )
 
 
@@ -139,58 +138,3 @@ class TestWellInfo:
         assert well_info.group_2 is None
         assert well_info.group_3 is None
 
-
-class TestCurveFitResult:
-    """Test CurveFitResult dataclass."""
-    
-    def test_curve_fit_result_creation(self):
-        """Test CurveFitResult creation."""
-        well_id = "A1"
-        fitted_params = np.array([1000.0, 2.0, 5.0, 100.0, 0.1])  # [a, b, c, d, e]
-        fitted_curve = np.array([100, 120, 200, 500, 800, 950])
-        r_squared = 0.95
-        crossing_point = 4.2
-        threshold_value = 150.0
-        delta_fluorescence = 850.0
-        fit_quality = "excellent"
-        convergence_info = {"iterations": 25, "success": True}
-        
-        result = CurveFitResult(
-            well_id=well_id,
-            fitted_params=fitted_params,
-            fitted_curve=fitted_curve,
-            r_squared=r_squared,
-            crossing_point=crossing_point,
-            threshold_value=threshold_value,
-            delta_fluorescence=delta_fluorescence,
-            fit_quality=fit_quality,
-            convergence_info=convergence_info
-        )
-        
-        assert result.well_id == well_id
-        assert np.array_equal(result.fitted_params, fitted_params)
-        assert np.array_equal(result.fitted_curve, fitted_curve)
-        assert result.r_squared == r_squared
-        assert result.crossing_point == crossing_point
-        assert result.threshold_value == threshold_value
-        assert result.delta_fluorescence == delta_fluorescence
-        assert result.fit_quality == fit_quality
-        assert result.convergence_info == convergence_info
-    
-    def test_curve_fit_result_quality_values(self):
-        """Test that fit quality accepts expected values."""
-        valid_qualities = ["excellent", "good", "fair", "poor", "failed"]
-        
-        for quality in valid_qualities:
-            result = CurveFitResult(
-                well_id="A1",
-                fitted_params=np.array([1, 2, 3, 4, 5]),
-                fitted_curve=np.array([1, 2, 3]),
-                r_squared=0.9,
-                crossing_point=2.0,
-                threshold_value=100.0,
-                delta_fluorescence=500.0,
-                fit_quality=quality,
-                convergence_info={}
-            )
-            assert result.fit_quality == quality

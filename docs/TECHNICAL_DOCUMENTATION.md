@@ -200,36 +200,6 @@ class WellInfo:
 - `unused`: Wells not part of experiment
 - `blank`: Empty wells or buffer only
 
-#### CurveFitResult
-
-Results from 5-parameter sigmoid curve fitting.
-
-```python
-@dataclass
-class CurveFitResult:
-    """Result of curve fitting operation."""
-    success: bool
-    parameters: Optional[List[float]] = None      # [a, b, c, d, e] for sigmoid; poly coeffs for polynomial
-    r_squared: Optional[float] = None             # Goodness of fit
-    fit_type: str = "sigmoid"                     # "sigmoid" or "polynomial"
-    strategy_used: Optional[str] = None           # Fitting strategy
-    error_message: Optional[str] = None           # Error details
-    covariance_matrix: Optional[np.ndarray] = None
-    fit_error: Optional[float] = None
-    # Additional fluorescence metrics
-    baseline_fluorescence: Optional[float] = None
-    final_fluorescence: Optional[float] = None
-    fluorescence_change: Optional[float] = None
-    percent_change: Optional[float] = None
-```
-
-**Parameter Meanings:**
-- **a**: Amplitude (difference between upper and lower asymptotes)
-- **b**: Slope factor (steepness, can be positive or negative)
-- **c**: Inflection point (time at maximum slope)
-- **d**: Baseline (minimum fluorescence)
-- **e**: Linear component (accounts for drift)
-
 #### PassFailResult
 
 Pass/fail analysis results with detailed criteria evaluation.
@@ -640,7 +610,7 @@ class TestAnalysisPipeline:
         """Provide paths to sample data files."""
         return {
             'bmg_data': 'test_data/RM5097.96HL.BNCT.1.CSV',
-            'layout': 'test_data/RM5097_layout.csv'
+            'layout': 'test_data/Killer_plate_1.csv'  # New format with required Sample column
         }
     
     def test_complete_bmg_analysis(self, sample_files):

@@ -15,8 +15,8 @@ from fluorescence_tool.core.models import WellInfo
 class LayoutParser:
     """Parser for layout CSV files."""
     
-    REQUIRED_COLUMNS = ['Plate_ID', 'Well_Row', 'Well_Col', 'Well', 'Type']
-    OPTIONAL_COLUMNS = ['number_of_cells/capsules', 'Group_1', 'Group_2', 'Group_3', 'Sample']
+    REQUIRED_COLUMNS = ['Plate_ID', 'Well_Row', 'Well_Col', 'Well', 'Sample', 'Type']
+    OPTIONAL_COLUMNS = ['number_of_cells/capsules', 'Group_1', 'Group_2', 'Group_3']
     
     def parse_file(self, file_path: str) -> Dict[str, WellInfo]:
         """

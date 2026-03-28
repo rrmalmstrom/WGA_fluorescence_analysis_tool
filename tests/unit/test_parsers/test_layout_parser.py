@@ -1,8 +1,9 @@
 """
 Unit tests for Layout file parser.
 
-Tests use real data from test_data/RM5097_layout.csv
-Following TDD methodology - these tests should initially fail.
+Tests use real data from test_data/Killer_plate_1.csv (current required format, with
+Sample column between Well and Type).  The old RM5097_layout.csv format (no Sample
+column) is no longer accepted and should raise a ValueError.
 """
 
 import pytest
@@ -21,8 +22,8 @@ class TestLayoutParser:
     
     @pytest.fixture
     def test_file_path(self):
-        """Path to real layout test data file."""
-        return Path("test_data/RM5097_layout.csv")
+        """Path to current required-format layout test data file (with Sample column)."""
+        return Path("test_data/Killer_plate_1.csv")
     
     def test_parser_creation(self, parser):
         """Test parser can be created."""
@@ -70,8 +71,8 @@ class TestLayoutParser:
         plate_ids = {info.plate_id for info in result.values()}
         assert len(plate_ids) == 1
         
-        # Should match expected plate ID from test data
-        expected_plate_id = "RM5097.96HL.BNCT.1"
+        # Should match expected plate ID from Killer_plate_1.csv
+        expected_plate_id = "Killer_plate_1"
         assert expected_plate_id in plate_ids
     
     def test_optional_fields_handling(self, parser, test_file_path):
@@ -166,21 +167,171 @@ class TestLayoutParser:
             parser.parse_file(str(invalid_file))
     
     def test_empty_layout_file(self, parser, tmp_path):
-        """Test handling of empty layout file."""
-        # Create valid headers but no data
+        """Test handling of empty layout file (valid headers including Sample, but no data rows)."""
         empty_file = tmp_path / "empty_layout.csv"
-        empty_file.write_text("Plate_ID,Well_Row,Well_Col,Well,Type\n")
-        
+        empty_file.write_text("Plate_ID,Well_Row,Well_Col,Well,Sample,Type\n")
+
         with pytest.raises(ValueError, match="No valid well information found"):
             parser.parse_file(str(empty_file))
     
     def test_bom_handling(self, parser, tmp_path):
-        """Test handling of BOM (Byte Order Mark) in CSV files."""
-        # Create file with BOM
+        """Test handling of BOM (Byte Order Mark) in CSV files (new format with Sample)."""
         bom_file = tmp_path / "bom_layout.csv"
-        content = "Plate_ID,Well_Row,Well_Col,Well,Type\nTEST,A,1,A1,sample\n"
+        content = "Plate_ID,Well_Row,Well_Col,Well,Sample,Type\nTEST,A,1,A1,SAMPLE_X,sample\n"
         bom_file.write_bytes(b'\xef\xbb\xbf' + content.encode('utf-8'))
-        
+
         result = parser.parse_file(str(bom_file))
         assert "A1" in result
         assert result["A1"].plate_id == "TEST"
+        assert result["A1"].sample == "SAMPLE_X"
+
+
+class TestLayoutParserNewFormat:
+    """
+    Test Layout file parser with new format data (Killer_plate_1.csv).
+
+    The new format adds a 'Sample' column between 'Well' and 'Type':
+      Plate_ID, Well_Row, Well_Col, Well, Sample, Type, number_of_cells/capsules,
+      Group_1, Group_2, Group_3
+    """
+
+    @pytest.fixture
+    def parser(self):
+        """Create parser instance."""
+        return LayoutParser()
+
+    @pytest.fixture
+    def new_format_file_path(self):
+        """Path to new format layout test data file."""
+        return Path("test_data/Killer_plate_1.csv")
+
+    def test_parse_new_format_file(self, parser, new_format_file_path):
+        """Test that the new format file (with Sample column) parses successfully."""
+        result = parser.parse_file(str(new_format_file_path))
+
+        assert isinstance(result, dict)
+        assert len(result) > 0
+
+        for well_id, well_info in result.items():
+            assert isinstance(well_info, WellInfo)
+            assert well_info.well_id == well_id
+
+    def test_new_format_plate_id(self, parser, new_format_file_path):
+        """Test that plate ID is parsed correctly from new format file."""
+        result = parser.parse_file(str(new_format_file_path))
+
+        plate_ids = {info.plate_id for info in result.values()}
+        assert len(plate_ids) == 1
+        assert "Killer_plate_1" in plate_ids
+
+    def test_new_format_sample_column_populated(self, parser, new_format_file_path):
+        """Test that the Sample column is read and stored on WellInfo objects."""
+        result = parser.parse_file(str(new_format_file_path))
+
+        # Sample wells should have a non-empty sample value
+        sample_wells = [info for info in result.values() if info.well_type == "sample"]
+        assert len(sample_wells) > 0
+
+        for info in sample_wells:
+            assert info.sample, (
+                f"Well {info.well_id} is type 'sample' but has empty sample field"
+            )
+
+    def test_new_format_sample_value_correct(self, parser, new_format_file_path):
+        """Test that the Sample column value matches expected data (TEXAS_1)."""
+        result = parser.parse_file(str(new_format_file_path))
+
+        # All non-unused wells in Killer_plate_1.csv carry sample 'TEXAS_1'
+        active_wells = [
+            info for info in result.values() if info.well_type != "unused"
+        ]
+        assert len(active_wells) > 0
+
+        for info in active_wells:
+            assert info.sample == "TEXAS_1", (
+                f"Well {info.well_id} expected sample='TEXAS_1', got {info.sample!r}"
+            )
+
+    def test_new_format_unused_wells_have_empty_sample(self, parser, new_format_file_path):
+        """Test that unused wells have an empty (falsy) sample value."""
+        result = parser.parse_file(str(new_format_file_path))
+
+        unused_wells = [info for info in result.values() if info.well_type == "unused"]
+        assert len(unused_wells) > 0
+
+        for info in unused_wells:
+            # sample should be empty string or None for unused wells
+            assert not info.sample, (
+                f"Unused well {info.well_id} unexpectedly has sample={info.sample!r}"
+            )
+
+    def test_new_format_well_types_present(self, parser, new_format_file_path):
+        """Test that expected well types are present in new format file."""
+        result = parser.parse_file(str(new_format_file_path))
+
+        well_types = {info.well_type for info in result.values()}
+        expected_types = {"unused", "sample", "neg_cntrl", "pos_cntrl"}
+
+        assert len(well_types.intersection(expected_types)) >= 3
+
+    def test_new_format_group_columns_parsed(self, parser, new_format_file_path):
+        """Test that Group_1/2/3 columns are still parsed correctly in new format."""
+        result = parser.parse_file(str(new_format_file_path))
+
+        sample_wells = [info for info in result.values() if info.well_type == "sample"]
+        assert len(sample_wells) > 0
+
+        # Sample wells should have group_1 populated (e.g. Rep1, Rep2, Rep3)
+        wells_with_group1 = [info for info in sample_wells if info.group_1 is not None]
+        assert len(wells_with_group1) > 0
+
+    def test_new_format_cell_count_parsed(self, parser, new_format_file_path):
+        """Test that number_of_cells/capsules is parsed correctly in new format."""
+        result = parser.parse_file(str(new_format_file_path))
+
+        wells_with_count = [
+            info for info in result.values() if info.cell_count is not None
+        ]
+        assert len(wells_with_count) > 0
+
+        for info in wells_with_count:
+            assert isinstance(info.cell_count, int)
+            assert info.cell_count >= 0
+
+    def test_new_format_bom_handling(self, parser, tmp_path):
+        """Test new format file with BOM and Sample column parses correctly."""
+        bom_file = tmp_path / "new_format_bom.csv"
+        content = (
+            "Plate_ID,Well_Row,Well_Col,Well,Sample,Type,number_of_cells/capsules,"
+            "Group_1,Group_2,Group_3\n"
+            "PLATE1,A,1,A1,SAMPLE_X,sample,100,Rep1,BONCAT,Big\n"
+            "PLATE1,B,1,B1,,unused,,,,\n"
+        )
+        bom_file.write_bytes(b'\xef\xbb\xbf' + content.encode('utf-8'))
+
+        result = parser.parse_file(str(bom_file))
+
+        assert "A1" in result
+        assert result["A1"].sample == "SAMPLE_X"
+        assert result["A1"].well_type == "sample"
+        assert result["A1"].cell_count == 100
+        assert result["A1"].group_1 == "Rep1"
+
+        assert "B1" in result
+        assert not result["B1"].sample
+        assert result["B1"].well_type == "unused"
+
+    def test_old_format_without_sample_column_is_rejected(self, parser):
+        """
+        The old format (no Sample column) must now be rejected with a ValueError
+        because Sample is a required column.
+        """
+        old_file = Path("test_data/RM5097_layout.csv")
+        with pytest.raises(ValueError, match="Missing required columns"):
+            parser.parse_file(str(old_file))
+
+    def test_sample_field_present_on_wellinfo(self, parser, new_format_file_path):
+        """Test that WellInfo dataclass exposes the sample attribute."""
+        result = parser.parse_file(str(new_format_file_path))
+        first_well = next(iter(result.values()))
+        assert hasattr(first_well, "sample"), "WellInfo must have a 'sample' attribute"
