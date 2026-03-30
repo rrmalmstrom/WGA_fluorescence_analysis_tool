@@ -138,45 +138,33 @@ class ExportManager:
             crossing_point = ''
             r_squared = ''
             fit_quality = ''
+            threshold_result = None
+            curve_result = None
             
             if well_id in curve_fits:
                 fit_data = curve_fits[well_id]
+                threshold_result = fit_data.get('threshold_result')
+                curve_result = fit_data.get('curve_result')
                 
-                # Handle different result structures
-                if isinstance(fit_data, dict):
-                    # New structure from main_window analysis
-                    threshold_result = fit_data.get('threshold_result')
-                    curve_result = fit_data.get('curve_result')
-                    
-                    if threshold_result and hasattr(threshold_result, 'fluorescence_change'):
-                        delta_fluor = threshold_result.fluorescence_change
-                    
-                    # Handle crossing point with QC filter logic
-                    if threshold_result:
-                        if hasattr(threshold_result, 'crossing_time'):
-                            if threshold_result.crossing_time is not None:
-                                # Round to 1 decimal place for CSV output only
-                                crossing_point = round(threshold_result.crossing_time, 1)
-                            else:
-                                # Well failed QC filter - no CP value
-                                crossing_point = 'Failed QC'
-                        elif hasattr(threshold_result, 'success') and not threshold_result.success:
-                            # Alternative check for failed analysis
-                            crossing_point = 'Failed QC'
-                    if curve_result and hasattr(curve_result, 'r_squared'):
+                # Delta fluorescence: baseline-to-max change, stored on curve_result.
+                # This value is also used by the QC filter and pass/fail logic.
+                # Round to 1 decimal place for CSV output only; curve_result is not modified.
+                if curve_result and curve_result.fluorescence_change is not None:
+                    delta_fluor = round(curve_result.fluorescence_change, 1)
+                
+                # Crossing point from threshold analysis
+                if threshold_result:
+                    if threshold_result.crossing_time is not None:
+                        # Round to 1 decimal place for CSV output
+                        crossing_point = round(threshold_result.crossing_time, 1)
+                    else:
+                        # Well failed QC filter — no CP calculated
+                        crossing_point = 'Failed QC'
+                
+                if curve_result:
+                    if curve_result.r_squared is not None:
                         r_squared = curve_result.r_squared
-                    if curve_result and hasattr(curve_result, 'success'):
-                        fit_quality = 'Good' if curve_result.success else 'Poor'
-                else:
-                    # Legacy structure - direct fit result object
-                    if hasattr(fit_data, 'fluorescence_change'):
-                        delta_fluor = fit_data.fluorescence_change
-                    if hasattr(fit_data, 'crossing_point'):
-                        crossing_point = fit_data.crossing_point
-                    if hasattr(fit_data, 'r_squared'):
-                        r_squared = fit_data.r_squared
-                    if hasattr(fit_data, 'fit_quality'):
-                        fit_quality = fit_data.fit_quality
+                    fit_quality = 'Good' if curve_result.success else 'Poor'
             
             # Determine pass/fail status using correct logic:
             # 1. QC filter determines if CP exists (FIXED - never changes)
@@ -221,35 +209,16 @@ class ExportManager:
                 'Fit_Quality': fit_quality
             })
             
-            # Add sigmoid parameters if available
-            if well_id in curve_fits:
-                fit_data = curve_fits[well_id]
-                params = None
-                
-                if isinstance(fit_data, dict):
-                    curve_result = fit_data.get('curve_result')
-                    if curve_result and hasattr(curve_result, 'parameters'):
-                        params = curve_result.parameters
-                else:
-                    if hasattr(fit_data, 'fitted_params'):
-                        params = fit_data.fitted_params
-                
-                if params and len(params) >= 5:
-                    row_data.update({
-                        'Sigmoid_A': params[0],
-                        'Sigmoid_B': params[1],
-                        'Sigmoid_C': params[2],
-                        'Sigmoid_D': params[3],
-                        'Sigmoid_E': params[4]
-                    })
-                else:
-                    row_data.update({
-                        'Sigmoid_A': '',
-                        'Sigmoid_B': '',
-                        'Sigmoid_C': '',
-                        'Sigmoid_D': '',
-                        'Sigmoid_E': ''
-                    })
+            # Add sigmoid parameters if available (only for sigmoid fits with 5 params)
+            params = curve_result.parameters if curve_result else None
+            if params and len(params) >= 5:
+                row_data.update({
+                    'Sigmoid_A': params[0],
+                    'Sigmoid_B': params[1],
+                    'Sigmoid_C': params[2],
+                    'Sigmoid_D': params[3],
+                    'Sigmoid_E': params[4]
+                })
             else:
                 row_data.update({
                     'Sigmoid_A': '',
