@@ -1,16 +1,5 @@
 
 
-update layout file to include sample names following new layout process
-
-extract the plate name from the data file and add use it in the output file names.  Need different parsing info for differetn data formats
-
-
 documentation
 
 setup and distribution
-
-speed up curve fitting
-
-
-
-
