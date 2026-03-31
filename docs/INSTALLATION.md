@@ -1,6 +1,6 @@
-# Installation Guide - Fluorescence Data Analysis Tool
+# Installation Guide — WGA Fluorescence Analysis Tool
 
-Complete installation and setup instructions for the simplified fluorescence analysis tool.
+Complete installation and setup instructions for the WGA fluorescence analysis tool.
 
 ## Table of Contents
 
@@ -19,20 +19,10 @@ Complete installation and setup instructions for the simplified fluorescence ana
 
 ### Minimum Requirements
 
-**Operating System**
-- Windows 10 or later
-- macOS 10.14 (Mojave) or later
-- Linux (Ubuntu 18.04+, CentOS 7+, or equivalent)
-
-**Hardware**
-- 4 GB RAM (8 GB recommended)
-- 2 GB free disk space
-- Display resolution: 1024x768 minimum (1920x1080 recommended)
-- Graphics: Basic graphics card with OpenGL support
-
 **Software Prerequisites**
-- Python 3.9 or later (3.11 recommended)
+- Python 3.9–3.12
 - Conda package manager (Anaconda or Miniconda)
+- Git (required for the update-check feature in `launch_gui.py`)
 
 ### Recommended Specifications
 
@@ -44,8 +34,7 @@ Complete installation and setup instructions for the simplified fluorescence ana
 
 **For High-Throughput Use**
 - 16+ GB RAM for batch processing
-- Fast CPU (Intel i7/AMD Ryzen 7 or better)
-- Dedicated graphics card (optional, for better GUI performance)
+- Fast CPU (Apple M-series, Intel i7, or AMD Ryzen 7 / better)
 
 ---
 
@@ -54,18 +43,18 @@ Complete installation and setup instructions for the simplified fluorescence ana
 For users familiar with Python and conda environments:
 
 ```bash
-# 1. Clone or download the project
-git clone <repo-url>
+# 1. Clone the repository
+git clone https://github.com/rrmalmstrom/WGA_fluorescence_analysis_tool.git
 cd WGA_fluorescence_analysis_tool
 
-# 2. Create conda environment
-conda env create -f environment.yml
+# 2. Run the first-time setup script (creates the conda environment)
+bash setup.sh
 
 # 3. Launch the application
-#    macOS: double-click run.command in Finder
-#    Any platform (terminal):
-conda activate wga-fluorescence-gui
-python launch_gui.py
+#    macOS (recommended): double-click run.command in Finder
+#    Terminal (alternative):
+#      conda activate wga-fluorescence-gui
+#      python launch_gui.py
 ```
 
 **That's it!** Skip to [Verification and Testing](#verification-and-testing) to confirm everything works.
@@ -79,12 +68,10 @@ python launch_gui.py
 #### Option A: Install Anaconda (Recommended for Beginners)
 
 1. **Download Anaconda**
-   - Visit: https://www.anaconda.com/products/distribution
-   - Choose your operating system (Windows, macOS, or Linux)
-   - Download the Python 3.11 version
+   - Visit: https://www.anaconda.com/download
+   - Download the Python 3.11 version for your platform
 
 2. **Install Anaconda**
-   - **Windows**: Run the downloaded `.exe` file and follow the installer
    - **macOS**: Run the downloaded `.pkg` file and follow the installer
    - **Linux**: Run `bash Anaconda3-*.sh` and follow the prompts
 
@@ -98,7 +85,7 @@ python launch_gui.py
 
 1. **Download Miniconda**
    - Visit: https://docs.conda.io/en/latest/miniconda.html
-   - Choose your operating system and Python 3.11 version
+   - Choose your platform and Python 3.11 version
 
 2. **Install Miniconda**
    - Follow the same process as Anaconda above
@@ -109,50 +96,43 @@ python launch_gui.py
    python --version
    ```
 
-### Step 2: Download the Fluorescence Tool
+### Step 2: Download the Tool
 
-#### Option A: Download ZIP File
-
-1. **Download** the project as a ZIP file from the repository
-2. **Extract** to a convenient location (e.g., `Documents/WGA_fluorescence_analysis_tool`)
-3. **Navigate** to the extracted folder
-
-#### Option B: Clone with Git (If Available)
+#### Option A: Clone with Git (Recommended)
 
 ```bash
 # Navigate to desired directory
-cd ~/Documents  # or C:\Users\YourName\Documents on Windows
+cd ~/Documents
 
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/rrmalmstrom/WGA_fluorescence_analysis_tool.git
 cd WGA_fluorescence_analysis_tool
 ```
 
+#### Option B: Download ZIP File
+
+1. **Download** the project as a ZIP file from the repository
+2. **Extract** to a convenient location (e.g., `~/Documents/WGA_fluorescence_analysis_tool`)
+3. **Navigate** to the extracted folder in your terminal
+
+> **Note:** Cloning with Git is preferred — `launch_gui.py` uses `git fetch` / `git status` to check for updates automatically on each launch. Without a git repository, the update check is skipped gracefully.
+
 ### Step 3: Create the Conda Environment
 
-1. **Open Terminal/Command Prompt**
-   - **Windows**: Open "Anaconda Prompt" from Start Menu
-   - **macOS**: Open Terminal application
-   - **Linux**: Open your terminal emulator
+Run the provided setup script from inside the project folder:
 
-2. **Navigate to Project Directory**
-   ```bash
-   cd path/to/WGA_fluorescence_analysis_tool
-   ```
+```bash
+bash setup.sh
+```
 
-3. **Create Environment from File**
-   ```bash
-   conda env create -f environment.yml
-   ```
+`setup.sh` will:
+- Verify that `conda` and `git` are available on your PATH
+- Run `conda env create -f environment.yml` to create the `wga-fluorescence-gui` environment
+- Print next-step instructions when complete
 
-   This will:
-   - Create a new environment called "wga-fluorescence-gui"
-   - Install Python 3.9–3.12 and all required packages
-   - Set up the correct versions for compatibility
+> **Already ran setup before?** If the environment already exists, `setup.sh` will tell you and suggest `conda env update -f environment.yml --prune` instead.
 
-4. **Wait for Installation**
-   - This may take 5-15 minutes depending on your internet connection
-   - You'll see progress messages as packages are downloaded and installed
+This may take **5–10 minutes** depending on your internet connection.
 
 ### Step 4: Activate the Environment
 
@@ -160,21 +140,37 @@ cd WGA_fluorescence_analysis_tool
 conda activate wga-fluorescence-gui
 ```
 
-**Important**: You must activate this environment every time you want to use the tool.
+> **Important:** `launch_gui.py` checks that the correct conda environment is active and exits with an error if it is not. You must activate `wga-fluorescence-gui` before running the launcher from the terminal.
 
 ### Step 5: Launch the Application
 
-**macOS — double-click launcher (recommended):**
-Double-click `run.command` in Finder (inside the tool folder). It will open a Terminal, activate the conda environment automatically, prompt you for your **data folder** path (type or drag-and-drop the folder), and launch the GUI.
+#### Recommended: double-click `run.command` (macOS)
 
-**Any platform — terminal:**
+Double-click `run.command` in Finder (inside the tool folder). It will:
+1. Open a Terminal window
+2. Locate and source your conda installation automatically
+3. Activate the `wga-fluorescence-gui` environment
+4. Prompt you for your **data folder** path (type or drag-and-drop the folder)
+5. Launch the GUI via `python launch_gui.py --data-folder <path>`
+
+> **Data folder:** When a data folder is provided, all file-open dialogs (Load Data File, Load Layout File) and export dialogs (Save CSV, Export Plot) default to that folder.
+
+#### Alternative: terminal launch (macOS / Linux)
+
+If you prefer the terminal, or are on Linux:
+
 ```bash
+conda activate wga-fluorescence-gui
 python launch_gui.py
 ```
 
-`launch_gui.py` will confirm the conda environment is active, check GitHub for updates, then open the application window.
+You can also pass a data folder directly:
 
-> **Data folder:** When a data folder is provided, all file-open dialogs (Load Data File, Load Layout File) and export dialogs (Save CSV, Export Plot) default to that folder.
+```bash
+python launch_gui.py --data-folder /path/to/your/data
+```
+
+In both cases, `launch_gui.py` confirms the conda environment is active, checks GitHub for updates (prompting you to pull if a new version is available), then opens the application window.
 
 ---
 
@@ -189,7 +185,7 @@ The tool uses a dedicated conda environment to ensure:
 
 ### Environment Contents
 
-The `environment.yml` file specifies:
+The [`environment.yml`](../environment.yml) file specifies:
 
 ```yaml
 name: wga-fluorescence-gui
@@ -202,10 +198,11 @@ dependencies:
   - scipy >=1.13,<2.0
   - pandas >=2.0,<3.0
   - matplotlib >=3.9,<4.0
+  - pytest >=7.0
   - pip
 ```
 
-> **Note:** tkinter is built into Python — no separate install is needed on most systems. See troubleshooting below if you encounter `tkinter not available` on Linux.
+> **Note:** `tkinter` is built into Python — no separate install is needed on most systems. See troubleshooting below if you encounter `tkinter not available` on Linux.
 
 ### Managing the Environment
 
@@ -224,9 +221,9 @@ conda deactivate
 conda list
 ```
 
-#### Update Environment (if needed)
+#### Update Environment (if `environment.yml` changed)
 ```bash
-conda env update -f environment.yml
+conda env update -f environment.yml --prune
 ```
 
 #### Remove Environment (if needed)
@@ -242,7 +239,9 @@ conda env remove -n wga-fluorescence-gui
 
 1. **Launch the Application**
 
-   macOS: double-click `run.command` in Finder, or from the terminal:
+   **macOS (recommended):** double-click `run.command` in Finder.
+
+   **Terminal (alternative):**
    ```bash
    conda activate wga-fluorescence-gui
    python launch_gui.py
@@ -256,14 +255,14 @@ conda env remove -n wga-fluorescence-gui
 
 3. **Test with Sample Data**
    - Use files in the `test_data/` directory
-   - Load `RM5097.96HL.BNCT.1.CSV` as data file
-   - Load `RM5097_layout.csv` as layout file
+   - Load `test_data/RM5097.96HL.BNCT.1.CSV` as data file
+   - Load `test_data/RM5097_layout.csv` as layout file
    - Click "Process Files"
    - Verify plate view shows colored wells
 
 ### Running Automated Tests
 
-The tool includes a comprehensive test suite:
+The tool includes a test suite under `tests/`:
 
 ```bash
 # Activate environment
@@ -286,23 +285,21 @@ pytest tests/integration/ -v   # Integration tests
 - ✅ Sample data loads correctly
 
 **Common Test Failures**:
-- Missing dependencies (check environment.yml)
-- Graphics/display issues (update drivers)
-- File permission problems (check write access)
+- Missing dependencies (check `environment.yml` and re-run `bash setup.sh`)
+- Environment not activated (`conda activate wga-fluorescence-gui`)
+- File permission problems (check read access to `test_data/`)
 
-### Performance Verification
+### Verification Scripts
 
-Test with the included verification script:
+Additional standalone verification scripts are available:
 
 ```bash
 python tests/verification/end_to_end_verification.py
+python tests/verification/simple_verification.py
+python tests/verification/verify_curve_fitting.py
 ```
 
-This will:
-- Process real laboratory data
-- Generate analysis results
-- Create output plots
-- Validate against expected results
+These scripts process real laboratory data, generate analysis results, and validate against expected outputs without requiring the GUI.
 
 ---
 
@@ -312,89 +309,95 @@ This will:
 
 #### "conda: command not found"
 
-**Problem**: Conda is not in your system PATH
+**Problem**: Conda is not in your system PATH.  
 **Solutions**:
-1. Restart terminal after installing Anaconda/Miniconda
-2. On Windows, use "Anaconda Prompt" instead of regular Command Prompt
+1. Restart your terminal after installing Anaconda/Miniconda
+2. On macOS, ensure the installer added conda to your shell profile (`~/.zshrc` or `~/.bash_profile`)
 3. Add conda to PATH manually (advanced users)
 
 #### "Environment creation failed"
 
-**Problem**: Network issues or package conflicts
+**Problem**: Network issues or package conflicts.  
 **Solutions**:
 1. Check internet connection
 2. Try again (temporary server issues)
 3. Clear conda cache: `conda clean --all`
-4. Use different conda channels: `conda config --add channels conda-forge`
+4. Ensure `conda-forge` channel is available: `conda config --add channels conda-forge`
+
+#### "❌ Wrong conda environment" or "❌ No conda environment is active"
+
+**Problem**: `launch_gui.py` detected that `wga-fluorescence-gui` is not the active environment.  
+**Solution**:
+```bash
+conda activate wga-fluorescence-gui
+python launch_gui.py
+```
+
+#### "❌ Could not activate the 'wga-fluorescence-gui' conda environment" (run.command)
+
+**Problem**: The environment hasn't been created yet.  
+**Solution**: Run the setup script first:
+```bash
+bash setup.sh
+```
+Then double-click `run.command` again.
 
 #### "tkinter not available"
 
-**Problem**: GUI toolkit not installed (rare on most systems)
+**Problem**: GUI toolkit not installed (rare on most systems).  
 **Solutions**:
 1. **Linux**: Install tkinter package
    ```bash
    # Ubuntu/Debian
    sudo apt-get install python3-tk
-   
+
    # CentOS/RHEL
-   sudo yum install tkinter
+   sudo yum install python3-tkinter
    ```
-2. **macOS**: Usually included, try reinstalling Python
-3. **Windows**: Usually included with Anaconda
-
-#### "Permission denied" errors
-
-**Problem**: Insufficient file permissions
-**Solutions**:
-1. Run terminal as administrator (Windows) or use sudo (Linux/macOS)
-2. Install in user directory instead of system directory
-3. Check antivirus software isn't blocking installation
+2. **macOS**: Usually included with Python from conda; try recreating the environment
 
 #### "Import errors" when running
 
-**Problem**: Environment not activated or incomplete installation
+**Problem**: Environment not activated or incomplete installation.  
 **Solutions**:
 1. Ensure environment is activated: `conda activate wga-fluorescence-gui`
-2. Reinstall environment: `conda env remove -n wga-fluorescence-gui` then recreate
-3. Check Python version: `python --version` (should be 3.9+)
+2. Reinstall environment:
+   ```bash
+   conda env remove -n wga-fluorescence-gui
+   bash setup.sh
+   ```
+3. Check Python version: `python --version` (should be 3.9–3.12)
 
-### Platform-Specific Issues
-
-#### Windows
-
-**Graphics Issues**
-- Update graphics drivers
-- Try running with `python -m tkinter` to test GUI
-
-**Path Issues**
-- Use forward slashes or raw strings for file paths
-- Avoid spaces in installation directory
+### Platform-Specific Notes
 
 #### macOS
 
-**Security Warnings**
-- Allow Python in System Preferences > Security & Privacy
-- Grant file access permissions when prompted
+**Security Warnings (Gatekeeper)**
+- If macOS blocks `run.command`, right-click it in Finder and choose **Open**, then confirm
+- Allow Python in **System Settings → Privacy & Security** if prompted
+- Grant file access permissions when prompted by the OS
 
-**M1/M2 Macs**
-- Use native conda packages when available
-- Some packages may need Rosetta 2 translation
+**Apple Silicon (M1/M2/M3)**
+- `conda-forge` packages are natively compiled for Apple Silicon — no Rosetta 2 needed for the dependencies in `environment.yml`
 
 #### Linux
 
 **Display Issues**
-- Ensure X11 forwarding if using SSH: `ssh -X`
-- Install GUI libraries: `sudo apt-get install python3-tk`
+- Ensure a display is available; if using SSH, enable X11 forwarding: `ssh -X user@host`
+- Install GUI libraries if missing: `sudo apt-get install python3-tk`
 
-**Package Manager Conflicts**
-- Use conda instead of pip when possible
-- Avoid mixing system Python with conda
+**`run.command` is macOS-only**
+- On Linux, always launch via the terminal:
+  ```bash
+  conda activate wga-fluorescence-gui
+  python launch_gui.py
+  ```
 
 ---
 
 ## Alternative Installation Methods
 
-### Method 1: Manual Dependency Installation
+### Method 1: Manual Dependency Installation (pip / venv)
 
 If conda is not available:
 
@@ -403,31 +406,21 @@ If conda is not available:
 python -m venv fluorescence_env
 
 # Activate environment
-# Windows:
-fluorescence_env\Scripts\activate
 # macOS/Linux:
 source fluorescence_env/bin/activate
 
 # Install dependencies
-pip install "numpy>=2.0,<3.0" "scipy>=1.13,<2.0" "pandas>=2.0,<3.0" "matplotlib>=3.9,<4.0" pytest
+pip install "numpy>=2.0,<3.0" "scipy>=1.13,<2.0" "pandas>=2.0,<3.0" "matplotlib>=3.9,<4.0" "pytest>=7.0"
 ```
 
-### Method 2: Docker Installation (Advanced)
-
-For containerized deployment:
-
-```dockerfile
-FROM python:3.9-slim
-
-WORKDIR /app
-COPY . .
-
-RUN pip install -r requirements.txt
-
-CMD ["python", "launch_gui.py"]
+Then launch with:
+```bash
+python launch_gui.py
 ```
 
-### Method 3: System Python (Not Recommended)
+> **Note:** The conda environment check in `launch_gui.py` will report that no conda environment is active, but the tool will still exit — you would need to run `python -c "from fluorescence_tool.gui.main_window import MainWindow; MainWindow().run()"` directly, or modify the launcher. Using conda is strongly recommended.
+
+### Method 2: System Python (Not Recommended)
 
 Only if virtual environments are not possible:
 
@@ -444,7 +437,16 @@ python launch_gui.py
 
 ### Updating the Tool
 
-When new versions are available:
+`launch_gui.py` checks for updates automatically on each launch. When a new version is available on GitHub, it will prompt:
+
+```
+🔄 A new version is available on GitHub.
+Pull updates now? [y/N]:
+```
+
+Type `y` to pull and automatically restart with the new version.
+
+To update manually:
 
 1. **Pull Latest Changes**
    ```bash
@@ -453,7 +455,7 @@ When new versions are available:
 
 2. **Update Environment** (only if `environment.yml` changed)
    ```bash
-   conda env update -f environment.yml
+   conda env update -f environment.yml --prune
    ```
 
 3. **Test Updated Installation**
@@ -474,16 +476,16 @@ conda clean --all
 ```
 
 #### Monitor Disk Space
-The conda environment uses approximately 1-2 GB of disk space.
+The conda environment uses approximately 1–2 GB of disk space.
 
 ### Backup and Recovery
 
-#### Backup Environment
+#### Export Environment Snapshot
 ```bash
 conda env export -n wga-fluorescence-gui > wga_fluorescence_backup.yml
 ```
 
-#### Restore Environment
+#### Restore from Snapshot
 ```bash
 conda env create -f wga_fluorescence_backup.yml
 ```
@@ -502,7 +504,7 @@ conda env create -f wga_fluorescence_backup.yml
 **Before Seeking Help**:
 1. Check this installation guide thoroughly
 2. Try the troubleshooting steps above
-3. Test with provided sample data
+3. Test with provided sample data in `test_data/`
 4. Run the verification scripts
 
 **When Reporting Issues**:
@@ -530,14 +532,14 @@ python -c "import numpy, scipy, pandas, matplotlib; print('All packages imported
 
 ### Community Resources
 
-- Check the project documentation
-- Review the test data and examples
-- Examine the verification scripts for usage patterns
+- Check the project documentation in `docs/`
+- Review the test data and examples in `test_data/`
+- Examine the verification scripts in `tests/verification/` for usage patterns
 
 ---
 
-**Installation Complete!** 
+**Installation Complete!**
 
-Once installed successfully, refer to the [USER_GUIDE.md](USER_GUIDE.md) for detailed usage instructions and the [README.md](README.md) for project overview.
+Once installed successfully, refer to the [USER_GUIDE.md](USER_GUIDE.md) for detailed usage instructions and the [README.md](../README.md) for project overview.
 
 *For technical details about the implementation, see [TECHNICAL_DOCUMENTATION.md](TECHNICAL_DOCUMENTATION.md).*
