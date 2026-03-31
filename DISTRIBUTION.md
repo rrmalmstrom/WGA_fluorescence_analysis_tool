@@ -33,11 +33,13 @@ This guide is for lab members who need to install and run the WGA Fluorescence A
    cd WGA_fluorescence_analysis_tool
    ```
 
-3. **Create the conda environment:**
+3. **Run the setup script:**
 
    ```bash
-   conda env create -f environment.yml
+   bash setup.sh
    ```
+
+   `setup.sh` will verify that `conda` and `git` are available, then create the conda environment automatically. If the environment already exists it will tell you how to update it instead of failing.
 
 4. **Activate the environment:**
 
@@ -61,6 +63,15 @@ Once the environment is created, you only need two commands each time:
 conda activate wga-fluorescence-gui
 python main.py
 ```
+
+Each time the app launches it will automatically check GitHub for updates. If your local branch is behind the remote, you will see a prompt like:
+
+```
+🔄 Updates are available from GitHub.
+Pull updates now? [y/N]:
+```
+
+Enter `y` to download and apply the latest changes before the GUI opens, or press Enter to skip and continue with the current version. This means you no longer need to run `git pull` manually before each session.
 
 ---
 

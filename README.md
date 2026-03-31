@@ -31,15 +31,23 @@ Supported instruments:
 
 ---
 
-## Installation
+## First-Time Setup
 
-**Requirements:** [conda](https://docs.conda.io/en/latest/miniconda.html) (Miniconda or Anaconda)
+**Requirements:** [conda](https://docs.conda.io/en/latest/miniconda.html) (Miniconda or Anaconda) and [git](https://git-scm.com/downloads)
+
+After cloning, run the setup script:
 
 ```bash
-git clone <repo-url>
-cd WGA_fluorescence_analysis_tool
-conda env create -f environment.yml
+bash setup.sh
+```
+
+`setup.sh` checks for `conda` and `git`, creates the conda environment from [`environment.yml`](environment.yml), and prints the commands needed to activate and launch the app.
+
+Then activate the environment and launch:
+
+```bash
 conda activate wga-fluorescence-gui
+python main.py
 ```
 
 **Dependencies** (managed by `environment.yml`):
@@ -60,6 +68,15 @@ conda activate wga-fluorescence-gui
 ```bash
 python main.py
 ```
+
+Each time the app launches it automatically checks GitHub for updates. If your local branch is behind the remote, you will be prompted:
+
+```
+🔄 Updates are available from GitHub.
+Pull updates now? [y/N]:
+```
+
+Enter `y` to pull the latest changes before the GUI opens, or press Enter to skip and launch with the current version.
 
 Or, for verbose debug output to the terminal:
 
