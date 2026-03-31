@@ -6,7 +6,7 @@
 # environment. After setup, activate the environment and launch the app:
 #
 #   conda activate wga-fluorescence-gui
-#   python main.py
+#   python launch_gui.py
 # =============================================================================
 
 set -euo pipefail
@@ -53,7 +53,8 @@ echo ""
 # -----------------------------------------------------------------------------
 # Create the conda environment from environment.yml
 # -----------------------------------------------------------------------------
-echo "Creating conda environment from environment.yml..."
+echo "⏳ Creating conda environment from environment.yml..."
+echo "   This may take 5–10 minutes with no visible progress bar. Please wait."
 echo ""
 
 # Capture both stdout and stderr so we can inspect the output on failure
@@ -92,6 +93,9 @@ echo "    1. Activate the environment:"
 echo "         conda activate wga-fluorescence-gui"
 echo ""
 echo "    2. Launch the app:"
-echo "         python main.py"
+echo "         python launch_gui.py"
+echo ""
+echo "  The launcher will confirm your environment is active,"
+echo "  check GitHub for updates, then open the GUI."
 echo "============================================================"
 echo ""

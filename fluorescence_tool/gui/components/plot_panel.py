@@ -614,9 +614,11 @@ class PlotPanel(ttk.Frame):
         if not self.selected_wells:
             tk.messagebox.showwarning("Warning", "No wells selected to export")
             return
-            
+
         from tkinter import filedialog
-        
+
+        initial_dir = getattr(self.main_window, "initial_dir", None)
+
         filename = filedialog.asksaveasfilename(
             title="Export Plot",
             defaultextension=".pdf",
@@ -626,7 +628,8 @@ class PlotPanel(ttk.Frame):
                 ("SVG files", "*.svg"),
                 ("EPS files", "*.eps"),
                 ("All files", "*.*")
-            ]
+            ],
+            initialdir=initial_dir,
         )
         
         if filename:
@@ -688,9 +691,10 @@ class PlotPanel(ttk.Frame):
             safe_plate_id = re.sub(r'[\\/:*?"<>|]', '_', plate_id)
             auto_filename = f"{safe_plate_id}_amplification_kinetics_summary.csv"
             
-            # Save to the directory the script was launched from
+            # Save to the data folder if provided, otherwise the working directory
             from pathlib import Path
-            save_dir = Path.cwd()
+            initial_dir = getattr(self.main_window, "initial_dir", None)
+            save_dir = Path(initial_dir) if initial_dir else Path.cwd()
             save_path = str(save_dir / auto_filename)
             
             # Inform the user of the auto-generated path
@@ -705,10 +709,12 @@ class PlotPanel(ttk.Frame):
         else:
             # No layout data or ambiguous plate_id — fall back to file dialog
             from tkinter import filedialog
+            initial_dir = getattr(self.main_window, "initial_dir", None)
             filename = filedialog.asksaveasfilename(
                 title="Export Analysis Data",
                 defaultextension=".csv",
-                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+                initialdir=initial_dir,
             )
             if not filename:
                 return

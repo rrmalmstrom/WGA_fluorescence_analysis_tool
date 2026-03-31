@@ -36,12 +36,9 @@ Before using the fluorescence analysis tool, ensure you have:
    ```
 3. Navigate to the tool directory and launch:
    ```bash
-   python main.py
-   ```
-   Or, for verbose debug output:
-   ```bash
    python launch_gui.py
    ```
+   `launch_gui.py` will confirm the correct conda environment is active, check GitHub for updates, then open the GUI.
 
 The application window will open with a clean interface ready for your analysis.
 

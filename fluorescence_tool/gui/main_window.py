@@ -38,13 +38,21 @@ class MainWindow:
     visualizing plate layouts, analyzing curves, and exporting results.
     """
     
-    def __init__(self):
-        """Initialize the main application window."""
+    def __init__(self, initial_dir: Optional[str] = None):
+        """Initialize the main application window.
+        
+        Args:
+            initial_dir: Optional path to the data folder. When provided, all
+                file-open and file-save dialogs will default to this directory.
+        """
         self.root = tk.Tk()
         self.root.title("Fluorescence Data Analysis Tool")
         self.root.geometry("1400x900")
         self.root.minsize(1000, 600)
-        
+
+        # Data folder — used as the default directory for all file dialogs
+        self.initial_dir: Optional[str] = initial_dir if initial_dir else None
+
         # Application state
         self.fluorescence_data: Optional[FluorescenceData] = None
         self.layout_data: Dict[str, WellInfo] = {}
@@ -211,10 +219,11 @@ class MainWindow:
             ("BioRad files", "*.txt"),
             ("All files", "*.*")
         ]
-        
+
         filename = filedialog.askopenfilename(
             title="Load Fluorescence Data File",
-            filetypes=filetypes
+            filetypes=filetypes,
+            initialdir=self.initial_dir,
         )
         
         if filename:
@@ -226,10 +235,11 @@ class MainWindow:
             ("CSV files", "*.csv"),
             ("All files", "*.*")
         ]
-        
+
         filename = filedialog.askopenfilename(
             title="Load Layout File",
-            filetypes=filetypes
+            filetypes=filetypes,
+            initialdir=self.initial_dir,
         )
         
         if filename:

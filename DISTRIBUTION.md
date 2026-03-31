@@ -50,7 +50,7 @@ This guide is for lab members who need to install and run the WGA Fluorescence A
 5. **Launch the app:**
 
    ```bash
-   python main.py
+   python launch_gui.py
    ```
 
 ---
@@ -61,13 +61,15 @@ Once the environment is created, you only need two commands each time:
 
 ```bash
 conda activate wga-fluorescence-gui
-python main.py
+python launch_gui.py
 ```
 
-Each time the app launches it will automatically check GitHub for updates. If your local branch is behind the remote, you will see a prompt like:
+Each time the app launches, `launch_gui.py` automatically:
+1. Confirms the correct conda environment is active
+2. Checks GitHub for updates — if your local branch is behind the remote, you will see a prompt like:
 
 ```
-🔄 Updates are available from GitHub.
+🔄 A new version is available on GitHub.
 Pull updates now? [y/N]:
 ```
 
@@ -83,7 +85,7 @@ The lab owner pushes updates to GitHub. You should pull the latest changes befor
 cd WGA_fluorescence_analysis_tool
 git pull origin main
 conda activate wga-fluorescence-gui
-python main.py
+python launch_gui.py
 ```
 
 > **If `environment.yml` was updated** (e.g., new packages were added), also run:

@@ -65,7 +65,7 @@ conda env create -f environment.yml
 conda activate wga-fluorescence-gui
 
 # 4. Launch application
-python main.py
+python launch_gui.py
 ```
 
 **That's it!** Skip to [Verification and Testing](#verification-and-testing) to confirm everything works.
@@ -165,10 +165,10 @@ conda activate wga-fluorescence-gui
 ### Step 5: Launch the Application
 
 ```bash
-python main.py
+python launch_gui.py
 ```
 
-The application window should open, showing the fluorescence analysis tool interface.
+`launch_gui.py` will confirm the conda environment is active, check GitHub for updates, then open the application window.
 
 ---
 
@@ -237,7 +237,7 @@ conda env remove -n wga-fluorescence-gui
 1. **Launch the Application**
    ```bash
    conda activate wga-fluorescence-gui
-   python main.py
+   python launch_gui.py
    ```
 
 2. **Check Interface Elements**
@@ -416,7 +416,7 @@ COPY . .
 
 RUN pip install -r requirements.txt
 
-CMD ["python", "main.py"]
+CMD ["python", "launch_gui.py"]
 ```
 
 ### Method 3: System Python (Not Recommended)
@@ -425,7 +425,7 @@ Only if virtual environments are not possible:
 
 ```bash
 pip install --user numpy scipy pandas matplotlib pytest
-python main.py
+python launch_gui.py
 ```
 
 **Warning**: This may cause conflicts with other Python projects.

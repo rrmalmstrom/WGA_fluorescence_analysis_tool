@@ -47,7 +47,7 @@ Then activate the environment and launch:
 
 ```bash
 conda activate wga-fluorescence-gui
-python main.py
+python launch_gui.py
 ```
 
 **Dependencies** (managed by `environment.yml`):
@@ -66,23 +66,19 @@ python main.py
 ## Usage
 
 ```bash
-python main.py
+python launch_gui.py
 ```
 
-Each time the app launches it automatically checks GitHub for updates. If your local branch is behind the remote, you will be prompted:
+Each time the app launches, `launch_gui.py` automatically:
+1. Confirms the correct conda environment (`wga-fluorescence-gui`) is active
+2. Checks GitHub for updates — if your local branch is behind the remote, you will be prompted:
 
 ```
-🔄 Updates are available from GitHub.
+🔄 A new version is available on GitHub.
 Pull updates now? [y/N]:
 ```
 
 Enter `y` to pull the latest changes before the GUI opens, or press Enter to skip and launch with the current version.
-
-Or, for verbose debug output to the terminal:
-
-```bash
-python launch_gui.py
-```
 
 ### Workflow
 
@@ -116,11 +112,11 @@ Parameters: `a` (amplitude), `b` (steepness), `c` (inflection point / CP), `d` (
 
 ## Updating
 
-The intended lab workflow is to clone once and pull updates as needed:
+The intended lab workflow is to clone once and let `launch_gui.py` handle updates automatically each session. To update manually:
 
 ```bash
 git pull origin main
-python main.py
+python launch_gui.py
 ```
 
 No reinstallation of the conda environment is needed unless `environment.yml` changes.
@@ -132,8 +128,8 @@ No reinstallation of the conda environment is needed unless `environment.yml` ch
 ```
 WGA_fluorescence_analysis_tool/
 ├── environment.yml              # Conda environment specification
-├── main.py                      # Primary entry point
-├── launch_gui.py                # Alternate launcher with debug output
+├── launch_gui.py                # User-facing launcher (env check + auto-update + GUI)
+├── main.py                      # Internal entry point (imports and starts MainWindow)
 ├── pytest.ini                   # Test configuration
 ├── README.md
 ├── fluorescence_tool/
