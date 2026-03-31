@@ -75,3 +75,14 @@ cp_fix_validation_plot.png
 # Log files
 *.log
 fluorescence_analysis.log
+
+# Internal development artifacts (kept local only)
+plans/
+old_original_python_scripts/
+to-do_list_MDA_curve_analysis.txt
+
+# Generated output files (should not be committed)
+*.pdf
+*_amplification_kinetics_summary.csv
+test_data/test_plot.pdf
+TEST01.BIORAD.FORMAT.1_amplification_kinetics_summary.csv

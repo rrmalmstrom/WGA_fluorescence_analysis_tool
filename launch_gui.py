@@ -18,10 +18,10 @@ def main():
         
         print("Launching Fluorescence Analysis Tool GUI...")
         print("Available test files:")
-        print("  - Data: example_input_files/RM5097.96HL.BNCT.1.CSV")
-        print("  - Layout: example_input_files/RM5097_layout.csv")
-        print("  - BioRad Data: example_input_files/TEST01.BIORAD.FORMAT.1.txt")
-        print("  - BioRad Layout: example_input_files/TEST01.BIORAD_layout.csv")
+        print("  - Data: test_data/RM5097.96HL.BNCT.1.CSV")
+        print("  - Layout: test_data/RM5097_layout.csv")
+        print("  - BioRad Data: test_data/TEST01.BIORAD.FORMAT.1.txt")
+        print("  - BioRad Layout: test_data/TEST01.BIORAD_layout.csv")
         print()
         
         # Create and run the application

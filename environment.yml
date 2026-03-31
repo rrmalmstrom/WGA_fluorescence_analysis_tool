@@ -1,0 +1,23 @@
+# environment.yml
+# Conda environment for the WGA Fluorescence Analysis Tool.
+# GUI is built with Python's built-in tkinter (no install required).
+# Third-party dependencies cover array math, curve fitting, CSV parsing, and plotting.
+#
+# Create the environment with:
+#   conda env create -f environment.yml
+# Activate with:
+#   conda activate wga-fluorescence-gui
+
+name: wga-fluorescence-gui
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python >=3.9,<3.13
+  - numpy >=2.0,<3.0
+  - scipy >=1.13,<2.0
+  - pandas >=2.0,<3.0
+  - matplotlib >=3.9,<4.0
+  - pip
