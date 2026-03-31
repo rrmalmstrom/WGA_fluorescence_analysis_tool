@@ -61,10 +61,10 @@ cd WGA_fluorescence_analysis_tool
 # 2. Create conda environment
 conda env create -f environment.yml
 
-# 3. Activate environment
+# 3. Launch the application
+#    macOS: double-click run.command in Finder
+#    Any platform (terminal):
 conda activate wga-fluorescence-gui
-
-# 4. Launch application
 python launch_gui.py
 ```
 
@@ -164,11 +164,17 @@ conda activate wga-fluorescence-gui
 
 ### Step 5: Launch the Application
 
+**macOS — double-click launcher (recommended):**
+Double-click `run.command` in Finder (inside the tool folder). It will open a Terminal, activate the conda environment automatically, prompt you for your **data folder** path (type or drag-and-drop the folder), and launch the GUI.
+
+**Any platform — terminal:**
 ```bash
 python launch_gui.py
 ```
 
 `launch_gui.py` will confirm the conda environment is active, check GitHub for updates, then open the application window.
+
+> **Data folder:** When a data folder is provided, all file-open dialogs (Load Data File, Load Layout File) and export dialogs (Save CSV, Export Plot) default to that folder.
 
 ---
 
@@ -235,6 +241,8 @@ conda env remove -n wga-fluorescence-gui
 ### Basic Functionality Test
 
 1. **Launch the Application**
+
+   macOS: double-click `run.command` in Finder, or from the terminal:
    ```bash
    conda activate wga-fluorescence-gui
    python launch_gui.py

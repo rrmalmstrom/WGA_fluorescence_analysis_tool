@@ -6,7 +6,11 @@ This document explains how lab members get the tool, set it up once, and keep it
 
 ## 1. Overview
 
-This guide is for lab members who need to install and run the WGA Fluorescence Analysis Tool on their own machine. Setup only needs to be done once. After that, launching the app takes two commands.
+This guide is for lab members who need to install and run the WGA Fluorescence Analysis Tool on their own machine. Setup only needs to be done once. After that, launching the app is a single double-click on macOS, or two terminal commands on any platform.
+
+**Terminology used in this guide:**
+- **Tool folder** — the cloned git repository (`WGA_fluorescence_analysis_tool/`) containing all the code
+- **Data folder** — the folder on your machine where your plate reader output files (`.CSV`, `.txt`, layout `.csv`) are stored. This is completely separate from the tool folder.
 
 ---
 
@@ -41,15 +45,14 @@ This guide is for lab members who need to install and run the WGA Fluorescence A
 
    `setup.sh` will verify that `conda` and `git` are available, then create the conda environment automatically. If the environment already exists it will tell you how to update it instead of failing.
 
-4. **Activate the environment:**
+4. **Launch the app — choose one method:**
 
+   **macOS — double-click launcher (recommended):**
+   Double-click `run.command` in Finder. It will open a Terminal, activate the conda environment automatically, prompt you for your **data folder** path, and launch the GUI.
+
+   **Any platform — terminal:**
    ```bash
    conda activate wga-fluorescence-gui
-   ```
-
-5. **Launch the app:**
-
-   ```bash
    python launch_gui.py
    ```
 
@@ -57,8 +60,15 @@ This guide is for lab members who need to install and run the WGA Fluorescence A
 
 ## 3. Running the App (After First Setup)
 
-Once the environment is created, you only need two commands each time:
+**macOS — double-click launcher (recommended):**
+Double-click `run.command` in Finder (inside the tool folder). It will:
+1. Open a Terminal window
+2. Activate the `wga-fluorescence-gui` conda environment automatically
+3. Ask you to provide the path to your **data folder** (type it or drag-and-drop the folder into the Terminal)
+4. Check GitHub for updates
+5. Launch the GUI with all file dialogs defaulting to your data folder
 
+**Any platform — terminal:**
 ```bash
 conda activate wga-fluorescence-gui
 python launch_gui.py
@@ -74,6 +84,8 @@ Pull updates now? [y/N]:
 ```
 
 Enter `y` to download and apply the latest changes before the GUI opens, or press Enter to skip and continue with the current version. This means you no longer need to run `git pull` manually before each session.
+
+> **Data folder tip:** When you provide a data folder path, all file-open dialogs (Load Data File, Load Layout File) and export dialogs (Save CSV, Export Plot) will default to that folder — no more navigating through your file system each time.
 
 ---
 

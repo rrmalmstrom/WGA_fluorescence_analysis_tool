@@ -23,20 +23,32 @@ A comprehensive guide for laboratory scientists using the simplified fluorescenc
 
 Before using the fluorescence analysis tool, ensure you have:
 
-- **Data Files**: Your fluorescence measurements in BMG Omega3 (.csv) or BioRad (.txt) format
-- **Layout File**: A CSV file describing your plate layout with well types and groupings
+- **Data folder**: The folder on your machine where your plate reader output files are stored (`.CSV`, `.txt`, and layout `.csv` files). This is separate from the tool folder.
+- **Tool folder**: The cloned `WGA_fluorescence_analysis_tool/` repository with all the code.
 - **Python Environment**: The tool installed and ready to run (see [INSTALLATION.md](INSTALLATION.md))
 
 ### Launching the Application
+
+**macOS — double-click launcher (recommended):**
+
+1. Open the tool folder in Finder
+2. Double-click `run.command`
+3. A Terminal window opens and automatically activates the conda environment
+4. When prompted, type the path to your **data folder** or drag-and-drop the folder into the Terminal window, then press Enter
+5. The launcher checks for updates, then opens the GUI
+
+> All file-open dialogs (Load Data File, Load Layout File) and export dialogs (Save CSV, Export Plot) will default to the data folder you provided.
+
+**Any platform — terminal:**
 
 1. Open your terminal or command prompt
 2. Activate the conda environment:
    ```bash
    conda activate wga-fluorescence-gui
    ```
-3. Navigate to the tool directory and launch:
+3. Navigate to the tool folder and launch:
    ```bash
-   python launch_gui.py
+   python launch_gui.py [--data-folder /path/to/your/data]
    ```
    `launch_gui.py` will confirm the correct conda environment is active, check GitHub for updates, then open the GUI.
 
@@ -667,7 +679,7 @@ Before exporting, you can customize what appears in the plot:
 Killer_plate_1_amplification_kinetics_summary.csv
 ```
 
-The file is saved to the directory from which the application was launched. A confirmation dialog shows the full save path before writing.
+The file is saved to the **data folder** provided at launch (via `run.command` or `--data-folder`). If no data folder was provided, it falls back to the directory from which the application was launched. A confirmation dialog shows the full save path before writing.
 
 > **Note:** If no layout file has been loaded, the tool falls back to a standard Save As dialog so you can choose the filename and location manually.
 

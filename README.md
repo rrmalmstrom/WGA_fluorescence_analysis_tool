@@ -43,8 +43,12 @@ bash setup.sh
 
 `setup.sh` checks for `conda` and `git`, creates the conda environment from [`environment.yml`](environment.yml), and prints the commands needed to activate and launch the app.
 
-Then activate the environment and launch:
+Then launch the app:
 
+**macOS — double-click launcher (recommended):**
+Double-click [`run.command`](run.command) in Finder. It will open a Terminal, activate the conda environment automatically, prompt you for your **data folder** path, and launch the GUI.
+
+**Any platform — terminal:**
 ```bash
 conda activate wga-fluorescence-gui
 python launch_gui.py
@@ -65,8 +69,13 @@ python launch_gui.py
 
 ## Usage
 
+**macOS — double-click launcher (recommended):**
+Double-click [`run.command`](run.command) in Finder. It opens a Terminal, activates the conda environment, prompts for your **data folder** path (type or drag-and-drop the folder), then launches the GUI with all file-open and export dialogs defaulting to that folder.
+
+**Any platform — terminal:**
 ```bash
-python launch_gui.py
+conda activate wga-fluorescence-gui
+python launch_gui.py [--data-folder /path/to/data]
 ```
 
 Each time the app launches, `launch_gui.py` automatically:
@@ -79,6 +88,8 @@ Pull updates now? [y/N]:
 ```
 
 Enter `y` to pull the latest changes before the GUI opens, or press Enter to skip and launch with the current version.
+
+> **Data folder:** When a data folder is provided (via `run.command` prompt or `--data-folder`), all file-open dialogs (Load Data File, Load Layout File) and export dialogs (Save CSV, Export Plot) default to that folder.
 
 ### Workflow
 
@@ -128,6 +139,7 @@ No reinstallation of the conda environment is needed unless `environment.yml` ch
 ```
 WGA_fluorescence_analysis_tool/
 ├── environment.yml              # Conda environment specification
+├── run.command                  # macOS double-click launcher (activates conda, prompts for data folder)
 ├── launch_gui.py                # User-facing launcher (env check + auto-update + GUI)
 ├── main.py                      # Internal entry point (imports and starts MainWindow)
 ├── pytest.ini                   # Test configuration
