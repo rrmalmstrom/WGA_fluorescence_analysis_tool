@@ -104,6 +104,11 @@ class FluorescenceAnalysisPipeline:
     def detect_file_format(self, file_path: str) -> FileFormat:
         """
         Detect the format of a fluorescence data file.
+
+        Detection strategy:
+        - ``.xlsx`` → always BioRad CFX Maestro (no other instrument produces xlsx here)
+        - ``.csv``  → BMG Omega3 (confirmed by header content)
+        - ``.txt``  → BioRad legacy tab-separated (confirmed by header content)
         
         Args:
             file_path: Path to the data file
@@ -112,7 +117,12 @@ class FluorescenceAnalysisPipeline:
             Detected file format
         """
         file_path = Path(file_path)
-        
+        ext = file_path.suffix.lower()
+
+        # .xlsx files are always BioRad CFX Maestro — do NOT try to open as text
+        if ext == '.xlsx':
+            return FileFormat.BIORAD
+
         try:
             with open(file_path, 'r', encoding='utf-8-sig') as f:
                 first_lines = [f.readline().strip() for _ in range(5)]
@@ -136,7 +146,8 @@ class FluorescenceAnalysisPipeline:
         
         Args:
             file_path: Path to the fluorescence data file
-            cycle_time_minutes: Cycle time for BioRad files (required for BioRad format)
+            cycle_time_minutes: Cycle time for BioRad .txt files (required for legacy
+                .txt format; optional/ignored for .xlsx which auto-computes from timestamps)
             
         Returns:
             Parsed fluorescence data
@@ -144,13 +155,17 @@ class FluorescenceAnalysisPipeline:
         Raises:
             ValueError: If file format is unsupported or parsing fails
         """
+        file_path_obj = Path(file_path)
         file_format = self.detect_file_format(file_path)
         
         if file_format == FileFormat.BMG_OMEGA3:
             return self.bmg_parser.parse_file(file_path)
         elif file_format == FileFormat.BIORAD:
-            if cycle_time_minutes is None:
-                raise ValueError("cycle_time_minutes is required for BioRad format files")
+            # .xlsx auto-computes cycle time; .txt requires it from the caller
+            if file_path_obj.suffix.lower() == '.txt' and cycle_time_minutes is None:
+                raise ValueError(
+                    "cycle_time_minutes is required for BioRad .txt format files"
+                )
             return self.biorad_parser.parse_file(file_path, cycle_time_minutes)
         else:
             raise ValueError(f"Unsupported file format detected for {file_path}")

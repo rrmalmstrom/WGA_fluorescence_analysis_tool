@@ -216,7 +216,8 @@ class MainWindow:
         """Load fluorescence data file."""
         filetypes = [
             ("BMG Omega3 files", "*.csv"),
-            ("BioRad files", "*.txt"),
+            ("BioRad legacy files", "*.txt"),
+            ("BioRad CFX Maestro files", "*.xlsx"),
             ("All files", "*.*")
         ]
 
@@ -258,13 +259,33 @@ class MainWindow:
                 self.fluorescence_data = self.bmg_parser.parse_file(filename)
                 self.update_status(f"Loaded BMG data: {len(self.fluorescence_data.wells)} wells")
             elif file_path.suffix.lower() == '.txt':
-                # BioRad format - need cycle time
+                # BioRad legacy format — cycle time must be supplied by user
                 cycle_time = self._get_cycle_time()
                 if cycle_time:
                     self.fluorescence_data = self.biorad_parser.parse_file(filename, cycle_time)
                     self.update_status(f"Loaded BioRad data: {len(self.fluorescence_data.wells)} wells")
                 else:
                     return
+            elif file_path.suffix.lower() == '.xlsx':
+                # BioRad CFX Maestro format — auto-compute cycle time from timestamps,
+                # then show dialog pre-filled so the user can confirm or override.
+                auto_data = self.biorad_parser.parse_file(filename)
+                auto_cycle_time = auto_data.metadata.get("cycle_time_minutes", 15.0)
+                confirmed_cycle_time = self._get_cycle_time(prefill=auto_cycle_time)
+                if confirmed_cycle_time is None:
+                    return  # User cancelled
+                if confirmed_cycle_time != auto_cycle_time:
+                    # User changed the value — re-parse with the override
+                    self.fluorescence_data = self.biorad_parser.parse_file(
+                        filename, cycle_time_minutes=confirmed_cycle_time
+                    )
+                else:
+                    # User accepted the auto-computed value — reuse the already-parsed data
+                    self.fluorescence_data = auto_data
+                self.update_status(
+                    f"Loaded BioRad xlsx data: {len(self.fluorescence_data.wells)} wells, "
+                    f"cycle time {self.fluorescence_data.metadata.get('cycle_time_minutes')} min"
+                )
             else:
                 raise ValueError(f"Unsupported file format: {file_path.suffix}")
                 
@@ -275,12 +296,16 @@ class MainWindow:
             self.plate_view.update_data(self.fluorescence_data)
             
             self.progress_var.set(100)
+
+            # Validate plate ID against layout if layout is already loaded
+            self._validate_plate_id_match()
+
             self.update_status("Data file loaded successfully - ready for analysis")
             
         except Exception as e:
             self.progress_var.set(0)
             self.update_status("Error loading data file")
-            messagebox.showerror("Error", f"Failed to load data file:\\n{str(e)}")
+            messagebox.showerror("Error", f"Failed to load data file:\n{str(e)}")
             
     def _process_layout_file(self, filename: str):
         """Process the loaded layout file."""
@@ -298,18 +323,60 @@ class MainWindow:
             self.plate_view.update_layout(self.layout_data)
             
             self.progress_var.set(100)
+
+            # Validate plate ID against data file if data is already loaded
+            self._validate_plate_id_match()
+
             self.update_status("Layout file loaded successfully - ready for analysis")
             
         except Exception as e:
             self.progress_var.set(0)
             self.update_status("Error loading layout file")
-            messagebox.showerror("Error", f"Failed to load layout file:\\n{str(e)}")
+            messagebox.showerror("Error", f"Failed to load layout file:\n{str(e)}")
             
-    def _get_cycle_time(self) -> Optional[float]:
-        """Get cycle time for BioRad data."""
+    def _validate_plate_id_match(self):
+        """
+        Compare the plate ID embedded in the fluorescence data file against the
+        plate ID found in the layout file.  Shows a warning dialog if they differ.
+
+        Only runs when both data and layout are loaded AND the data file carries a
+        plate_id in its metadata (i.e. BioRad .xlsx format).  Silently skips for
+        formats that do not embed a plate ID (e.g. .txt, BMG .csv).
+        """
+        if not self.fluorescence_data or not self.layout_data:
+            return  # Both files must be loaded before we can compare
+
+        data_plate_id = self.fluorescence_data.metadata.get("plate_id")
+        if not data_plate_id:
+            return  # Format does not carry a plate ID — nothing to validate
+
+        # All WellInfo objects in the layout share the same Plate_ID
+        layout_plate_id = next(iter(self.layout_data.values())).plate_id
+
+        if data_plate_id != layout_plate_id:
+            messagebox.showwarning(
+                "Plate ID Mismatch",
+                f"The plate ID in the data file does not match the layout file.\n\n"
+                f"  Data file plate ID : {data_plate_id!r}\n"
+                f"  Layout file plate ID: {layout_plate_id!r}\n\n"
+                "Please verify that you have loaded the correct layout file for this data."
+            )
+
+    def _get_cycle_time(self, prefill: Optional[float] = None) -> Optional[float]:
+        """
+        Show a dialog asking the user to confirm or enter the cycle time in minutes.
+
+        Args:
+            prefill: Value to pre-fill the entry with.  When provided (xlsx format),
+                     the dialog shows the auto-computed estimate so the user can
+                     confirm or override it.  When None (txt format), defaults to 2.0.
+
+        Returns:
+            The confirmed cycle time as a float, or None if the user cancelled.
+        """
         dialog = tk.Toplevel(self.root)
         dialog.title("BioRad Cycle Time")
-        dialog.geometry("300x150")
+        dialog.geometry("340x180")
         dialog.transient(self.root)
         dialog.grab_set()
         
@@ -320,18 +387,34 @@ class MainWindow:
         ))
         
         result = [None]
+
+        if prefill is not None:
+            label_text = (
+                f"Estimated cycle time: {prefill} min\n"
+                "(auto-computed from run timestamps)\n\n"
+                "Confirm or enter a different value:"
+            )
+            default_value = str(int(prefill)) if prefill == int(prefill) else str(prefill)
+        else:
+            label_text = "Enter cycle time (minutes):"
+            default_value = "2.0"
         
         # Create dialog content
-        ttk.Label(dialog, text="Enter cycle time (minutes):").pack(pady=10)
+        ttk.Label(dialog, text=label_text, justify="center").pack(pady=10)
         
-        entry_var = tk.StringVar(value="2.0")
-        entry = ttk.Entry(dialog, textvariable=entry_var, width=10)
+        entry_var = tk.StringVar(value=default_value)
+        entry = ttk.Entry(dialog, textvariable=entry_var, width=10, justify="center")
         entry.pack(pady=5)
         entry.focus()
+        entry.select_range(0, tk.END)
         
         def ok_clicked():
             try:
-                result[0] = float(entry_var.get())
+                val = float(entry_var.get())
+                if val <= 0:
+                    messagebox.showerror("Error", "Cycle time must be a positive number")
+                    return
+                result[0] = val
                 dialog.destroy()
             except ValueError:
                 messagebox.showerror("Error", "Please enter a valid number")

@@ -163,7 +163,9 @@ class FileLoader(ttk.Frame):
             if file_path.suffix.lower() == '.csv':
                 format_text = " (BMG Omega3)"
             elif file_path.suffix.lower() == '.txt':
-                format_text = " (BioRad)"
+                format_text = " (BioRad txt)"
+            elif file_path.suffix.lower() == '.xlsx':
+                format_text = " (BioRad xlsx)"
             else:
                 format_text = ""
             self.data_file_var.set(f"{display_name}{format_text}")

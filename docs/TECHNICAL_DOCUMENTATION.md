@@ -96,7 +96,7 @@ fluorescence_tool/
 ├── parsers/                   # File format parsers
 │   ├── __init__.py
 │   ├── bmg_parser.py          # BMG Omega3 format parser
-│   ├── biorad_parser.py       # BioRad format parser
+│   ├── biorad_parser.py       # BioRad .txt and .xlsx format parser
 │   └── layout_parser.py       # Layout file parser
 └── algorithms/                # Analysis algorithms
     ├── __init__.py
@@ -491,6 +491,168 @@ summary_stats = results['summary_statistics']
 
 ---
 
+## File Format Parsers
+
+### BioRadParser
+
+`fluorescence_tool/parsers/biorad_parser.py` handles both the legacy tab-separated `.txt` format and the newer Bio-Rad CFX Maestro `.xlsx` format through a single `parse_file()` entry point that dispatches on file extension.
+
+#### Supported Formats
+
+| Extension | Format | Cycle Time Source |
+|-----------|--------|-------------------|
+| `.txt` | Legacy tab-separated (cycle numbers as rows) | Required from caller |
+| `.xlsx` | CFX Maestro native export (OOXML zip archive) | Auto-computed from run timestamps; caller may override |
+
+#### `parse_file()` Dispatch
+
+```python
+def parse_file(
+    self,
+    file_path: str,
+    cycle_time_minutes: Optional[float] = None,
+) -> FluorescenceData:
+    """
+    Parse a BioRad fluorescence file (.txt or .xlsx).
+
+    For .xlsx files, cycle_time_minutes is optional — the parser
+    computes an estimate from the run's start/end timestamps.
+    For .txt files, cycle_time_minutes is required.
+    """
+    path = Path(file_path)
+    ext = path.suffix.lower()
+    if ext == ".xlsx":
+        return self._parse_xlsx(file_path, cycle_time_minutes)
+    elif ext == ".txt":
+        return self._parse_txt(file_path, cycle_time_minutes)
+    else:
+        raise ValueError(f"Unsupported BioRad file extension: {ext!r}")
+```
+
+#### `_parse_xlsx()` — CFX Maestro Format
+
+The `.xlsx` file produced by CFX Maestro is an OOXML zip archive. Because the file uses a non-standard internal structure (no `xl/workbook.xml` relationships in the expected location), the parser reads it directly with `zipfile` + `xml.etree.ElementTree` rather than a library like `openpyxl`.
+
+**Internal files read:**
+- `xl/sharedStrings.xml` — shared string table for cell text values
+- `xl/worksheets/sheet*.xml` — individual worksheet XML (the SYBR sheet is located by scanning all sheets for the "SYBR" keyword in their names)
+- Run info (plate ID, timestamps, cycle count) is extracted from a dedicated run-information sheet
+
+**Key parsing steps:**
+1. Open the zip archive and read the shared strings table
+2. Scan worksheet names to find the SYBR fluorescence sheet
+3. Parse the sheet row-by-row; the first row contains well column headers (e.g., `A1`, `B2`)
+4. Each subsequent row is one PCR cycle; cell values are the raw fluorescence readings
+5. Call `_parse_run_info()` to extract plate ID, run start/end timestamps, and cycle count
+6. Call `_compute_cycle_time()` to estimate cycle time if not overridden by the caller
+7. Convert cycle indices to time points in hours: `time_h = cycle_index * cycle_time_minutes / 60`
+
+#### `_compute_cycle_time()` — Automatic Cycle Time Estimation
+
+```python
+POST_RUN_EXTENSION_MINUTES = 10.0
+
+def _compute_cycle_time(
+    self,
+    start: datetime,
+    end: datetime,
+    num_cycles: int,
+) -> float:
+    """
+    Estimate cycle time from run timestamps.
+
+    A 10-minute post-run extension step (not a PCR cycle) is subtracted
+    from the total run duration before dividing by the number of cycles.
+
+    Formula:
+        adjusted_minutes = max(total_minutes - 10, 0)
+        cycle_time = round(adjusted_minutes / num_cycles)
+    """
+    total_minutes = (end - start).total_seconds() / 60.0
+    adjusted_minutes = max(total_minutes - POST_RUN_EXTENSION_MINUTES, 0.0)
+    return round(adjusted_minutes / num_cycles)
+```
+
+**Rationale for the 10-minute correction:** CFX Maestro runs typically end with a 10-minute extension step that is not a PCR amplification cycle. Including this step in the total duration inflates the per-cycle estimate. Subtracting it before dividing yields a value that matches the actual inter-cycle interval (commonly 15 minutes).
+
+#### Metadata Populated by `_parse_xlsx()`
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `plate_id` | `str` | Plate identifier from the run info sheet |
+| `run_start` | `str` | ISO-format run start timestamp |
+| `run_end` | `str` | ISO-format run end timestamp |
+| `num_cycles` | `int` | Total number of PCR cycles |
+| `cycle_time_minutes` | `float` | Cycle time used (auto-computed or caller-supplied) |
+| `instrument` | `str` | Instrument name from run info |
+| `plate_format` | `str` | `"96-well"` or `"384-well"` |
+
+---
+
+### GUI — Plate ID Validation
+
+#### `MainWindow._validate_plate_id_match()`
+
+After either a data file or a layout file is loaded, `_validate_plate_id_match()` is called to cross-check the plate IDs. This guard is only active when both files are loaded and the data file contains a `plate_id` in its metadata (currently only BioRad `.xlsx` files populate this field).
+
+```python
+def _validate_plate_id_match(self):
+    """
+    Warn the user if the plate ID in the fluorescence data does not match
+    the plate ID in the layout file.
+
+    Only runs when both fluorescence_data and layout_data are loaded,
+    and only when the data file contains a 'plate_id' metadata key.
+    """
+    if not self.fluorescence_data or not self.layout_data:
+        return
+    data_plate_id = self.fluorescence_data.metadata.get("plate_id")
+    if not data_plate_id:
+        return
+    layout_plate_id = next(iter(self.layout_data.values())).plate_id
+    if data_plate_id != layout_plate_id:
+        messagebox.showwarning(
+            "Plate ID Mismatch",
+            f"The plate ID in the data file does not match the layout file.\n\n"
+            f"  Data file plate ID : {data_plate_id!r}\n"
+            f"  Layout file plate ID: {layout_plate_id!r}\n\n"
+            "Please verify that you have loaded the correct layout file for this data."
+        )
+```
+
+**When it fires:** The check runs from both `_process_data_file()` (after the xlsx is parsed) and `_process_layout_file()` (after the layout CSV is parsed), so the warning appears regardless of which file is loaded second.
+
+---
+
+### GUI — Cycle Time Dialog with Pre-fill
+
+#### `MainWindow._get_cycle_time(prefill=None)`
+
+For BioRad `.xlsx` files the GUI calls `_get_cycle_time(prefill=<auto_value>)` so the dialog entry is pre-populated with the parser's estimate. The user can confirm or type a different value.
+
+```python
+def _get_cycle_time(self, prefill: Optional[float] = None) -> Optional[float]:
+    """
+    Show a modal dialog asking for cycle time in minutes.
+
+    Args:
+        prefill: If provided, pre-fills the entry and shows an
+                 "Estimated cycle time" label. If None, the entry
+                 starts empty (legacy .txt behaviour).
+
+    Returns:
+        The confirmed cycle time as a float, or None if cancelled.
+    """
+```
+
+**`.xlsx` loading flow in `_process_data_file()`:**
+1. Parse the file once (no cycle time override) → get `auto_cycle_time` from metadata
+2. Show dialog pre-filled with `auto_cycle_time`
+3. If user changes the value → re-parse with the new `cycle_time_minutes`
+4. If user confirms the auto value → reuse the already-parsed data (no second parse)
+
+---
+
 ## Testing Framework
 
 ### Test Structure
@@ -510,7 +672,8 @@ tests/
 │   └── test_parsers/             # Parser tests
 │       ├── __init__.py
 │       ├── test_bmg_parser.py
-│       ├── test_biorad_parser.py
+│       ├── test_biorad_parser.py          # .txt and .xlsx parser tests (40 tests)
+│       ├── test_pipeline_xlsx_integration.py  # Pipeline + plate ID validation (21 tests)
 │       └── test_layout_parser.py
 ├── integration/                   # Integration tests
 │   ├── __init__.py

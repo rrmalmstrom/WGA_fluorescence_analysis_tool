@@ -126,18 +126,31 @@ A,1,A1,Time,1234.5,1245.2,1256.8,...
 A,2,A2,Time,2345.6,2356.3,2367.9,...
 ```
 
-#### BioRad Format (.txt)
+#### BioRad Format — Legacy (.txt)
 - **Cycle-Based Data**: Tab-separated format with cycle numbers
 - **Time Conversion**: Requires cycle time input (minutes per cycle)
 - **Plate Detection**: Automatically detects 96-well or 384-well format
 
-**Example BioRad File Structure:**
+**Example BioRad .txt File Structure:**
 ```
 Cycle	A1	A2	A3	A4	...	P24
 1	1234.5	2345.6	3456.7	4567.8	...	9876.5
 2	1245.2	2356.3	3467.4	4578.5	...	9887.2
 3	1256.8	2367.9	3478.1	4589.2	...	9898.9
 ```
+
+#### BioRad CFX Maestro Format (.xlsx)
+- **Native Excel Export**: Exported directly from Bio-Rad CFX Maestro software
+- **Automatic Cycle Time Estimation**: The tool reads run start/end timestamps from the file and estimates the cycle time automatically (subtracting a 10-minute post-run extension before dividing by the number of cycles)
+- **Cycle Time Confirmation Dialog**: A dialog pre-filled with the estimated cycle time appears so you can confirm or override the value before data is loaded
+- **Plate Detection**: Automatically detects 96-well or 384-well format
+- **Plate ID Extraction**: Reads the plate ID from the file's run information for cross-validation against the layout file
+
+**Example BioRad .xlsx Workflow:**
+1. Export "Quantification Amplification Results" from CFX Maestro as `.xlsx`
+2. Load the file — the tool estimates cycle time from run timestamps
+3. Confirm or adjust the pre-filled cycle time in the dialog
+4. Load the matching layout file
 
 #### Layout File (.csv)
 Required for both formats to provide well classification and grouping information.
@@ -172,17 +185,22 @@ Killer_plate_1,D,3,D3,TEXAS_1,sample,100,Rep1,BONCAT,Big
 
 1. **Click "Load Data File"** in the file loading panel
 2. **Navigate** to your fluorescence data file
-3. **Select** either a BMG (.csv) or BioRad (.txt) file
-4. **For BioRad files only**: Enter the cycle time in minutes
+3. **Select** a BMG (.csv), BioRad legacy (.txt), or BioRad CFX Maestro (.xlsx) file
+4. **For BioRad .txt files**: Enter the cycle time in minutes when prompted
    - This is the time interval between measurements
    - Common values: 15 minutes, 30 minutes, 1 hour (60 minutes)
    - Check your instrument settings or protocol
+5. **For BioRad .xlsx files**: A cycle time dialog appears pre-filled with the auto-estimated value
+   - The tool calculates the estimate from the run's start/end timestamps, subtracting a 10-minute post-run extension
+   - Confirm the pre-filled value or type a different number if needed
+   - Click **OK** to proceed
 
 #### Step 2: Load Layout File
 
 1. **Click "Load Layout File"** in the file loading panel
 2. **Navigate** to your layout CSV file
 3. **Select** the file that corresponds to your plate setup
+4. **For BioRad .xlsx files**: If the plate ID in the data file does not match the plate ID in the layout file, a **Plate ID Mismatch** warning dialog will appear — verify you have selected the correct layout before continuing
 
 #### Step 3: Process Files
 
@@ -202,7 +220,8 @@ Killer_plate_1,D,3,D3,TEXAS_1,sample,100,Rep1,BONCAT,Big
 
 **"File format not recognized"**
 - Ensure BMG files have .csv extension
-- Ensure BioRad files have .txt extension
+- Ensure BioRad legacy files have .txt extension
+- Ensure BioRad CFX Maestro files have .xlsx extension
 - Check that files aren't corrupted or empty
 
 **"Layout file missing required columns"**
@@ -214,6 +233,11 @@ Killer_plate_1,D,3,D3,TEXAS_1,sample,100,Rep1,BONCAT,Big
 - Verify plate IDs match between files
 - Check that well naming is consistent (A1, A2, etc.)
 - Ensure layout covers all wells in your data file
+
+**"Plate ID Mismatch" warning (BioRad .xlsx)**
+- The plate ID embedded in the .xlsx file does not match the `Plate_ID` in the layout CSV
+- Verify you have selected the layout file that belongs to this specific run
+- The plate ID from the data file is shown in the warning dialog for reference
 
 **"Invalid time format in BMG file"**
 - Check that time headers follow "X h Y min" format
@@ -227,6 +251,7 @@ The tool automatically validates your files and will show warnings for:
 - Inconsistent time progression
 - Unusual fluorescence values (negative, extremely high)
 - Encoding issues or special characters
+- Plate ID mismatch between a BioRad .xlsx data file and the loaded layout file
 
 **Important**: Warnings don't prevent analysis but should be reviewed to ensure data quality.
 
@@ -839,8 +864,8 @@ Common issues and their solutions for smooth operation of the fluorescence analy
 - Unsupported file format
 
 **Solutions**:
-1. Verify file extension (.csv for BMG, .txt for BioRad)
-2. Open file in text editor to check content
+1. Verify file extension (`.csv` for BMG, `.txt` for BioRad legacy, `.xlsx` for BioRad CFX Maestro)
+2. Open file in text editor / Excel to check content
 3. Re-export from instrument software if corrupted
 4. Check file size (should not be 0 bytes)
 
@@ -1029,7 +1054,7 @@ Common issues and their solutions for smooth operation of the fluorescence analy
 ### General Usage
 
 **Q: What file formats does the tool support?**
-A: BMG Omega3 CSV files and BioRad TXT files, plus CSV layout files for well information.
+A: BMG Omega3 `.csv` files, BioRad legacy `.txt` files, and BioRad CFX Maestro `.xlsx` files, plus CSV layout files for well information.
 
 **Q: Can I analyze partial plates?**
 A: Yes, the tool handles any number of wells from single wells to full 384-well plates.
@@ -1046,7 +1071,7 @@ A: Export your results as CSV files. The tool doesn't save sessions, but you can
 A: The tool recognizes "X h Y min" format. Contact support if your format is different.
 
 **Q: Can I use Excel files instead of CSV?**
-A: No, save Excel files as CSV format before loading.
+A: For layout files, no — save them as CSV format before loading. For BioRad fluorescence data, yes — `.xlsx` files exported directly from Bio-Rad CFX Maestro software are natively supported.
 
 **Q: What if my layout file has extra columns?**
 A: Extra columns are ignored. Only required columns need to match exactly.
