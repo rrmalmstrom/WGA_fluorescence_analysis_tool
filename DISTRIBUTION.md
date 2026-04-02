@@ -10,7 +10,7 @@ This guide is for lab members who need to install and run the WGA Fluorescence A
 
 **Terminology used in this guide:**
 - **Tool folder** — the cloned git repository (`WGA_fluorescence_analysis_tool/`) containing all the code
-- **Data folder** — the folder on your machine where your plate reader output files (`.CSV`, `.txt`, layout `.csv`) are stored. This is completely separate from the tool folder.
+- **Data folder** — the folder on your machine where your plate reader output files (`.CSV`, `.xlsx`, layout `.csv`) are stored. This is completely separate from the tool folder. Legacy Bio-Rad `.txt` files are also supported.
 
 ---
 

@@ -14,7 +14,8 @@ This tool reads fluorescence time-series data exported from plate reader instrum
 
 Supported instruments:
 - **BMG Omega3** — `.CSV` format (time encoded as "X h Y min")
-- **Bio-Rad CFX** — `.txt` format (cycle-based, user specifies cycle time in minutes)
+- **Bio-Rad CFX Maestro** — `.xlsx` format (native CFX Maestro export; cycle time auto-estimated from run timestamps, user confirms before loading)
+- **Bio-Rad CFX** — `.txt` format (legacy tab-separated format; user specifies cycle time in minutes)
 
 ---
 
@@ -93,7 +94,7 @@ Enter `y` to pull the latest changes before the GUI opens, or press Enter to ski
 
 ### Workflow
 
-1. **Load Data File** — select a BMG `.CSV` or Bio-Rad `.txt` file
+1. **Load Data File** — select a BMG `.CSV`, Bio-Rad CFX Maestro `.xlsx`, or Bio-Rad legacy `.txt` file
 2. **Load Layout File** — select the matching layout `.csv` file
    - Layout must include a `Sample` column; optional grouping columns (`Group_1`, `Group_2`, `Group_3`) are supported
    - For Bio-Rad files, enter the cycle time in minutes when prompted
@@ -158,7 +159,7 @@ WGA_fluorescence_analysis_tool/
 │   │   └── analysis_pipeline.py # Orchestrates full analysis workflow
 │   ├── parsers/
 │   │   ├── bmg_parser.py        # BMG Omega3 .CSV parser
-│   │   ├── biorad_parser.py     # Bio-Rad CFX .txt parser
+│   │   ├── biorad_parser.py     # Bio-Rad CFX .txt and .xlsx parser
 │   │   └── layout_parser.py     # Plate layout .csv parser
 │   └── gui/
 │       ├── main_window.py       # Main application window
@@ -168,9 +169,15 @@ WGA_fluorescence_analysis_tool/
 │           ├── plot_panel.py
 │           └── dialogs.py
 ├── test_data/                   # Sample input files for manual testing
-│   ├── RM5097.96HL.BNCT.1.CSV
+│   ├── RM5097.96HL.BNCT.1.CSV                                    # BMG Omega3 format
+│   ├── RM5097.96HL.BNCTECCNTRL.2.CSV                             # BMG Omega3 format
 │   ├── RM5097_layout.csv
-│   ├── TEST01.BIORAD.FORMAT.1.txt
+│   ├── 2026-0318 ReleaseMDA - Quantification Amplification Results.xlsx  # Bio-Rad CFX Maestro
+│   ├── 2026-0318 ReleaseMDA_layout.csv
+│   ├── 2026-0326 LMD spc - Quantification Amplification Results.xlsx     # Bio-Rad CFX Maestro
+│   ├── 2026-0326 LMD spc_layout.csv
+│   ├── 2026-0326 LMD spc_WRONG_layout.csv                        # Intentionally mismatched layout
+│   ├── TEST01.BIORAD.FORMAT.1.txt                                 # Bio-Rad legacy .txt format
 │   ├── TEST01.BIORAD_layout.csv
 │   └── tinyTEST01.BIORAD_layout.csv
 └── tests/
@@ -197,4 +204,4 @@ pytest -v
 
 ## Known Issues
 
-- **Performance:** Analyzing a full 96-well plate may take 1–2 minutes due to the curve fitting optimization step. This is a known limitation currently being addressed.
+No known issues at this time.
