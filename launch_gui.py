@@ -168,13 +168,6 @@ check_for_updates()
 print("🚀 Launching WGA Fluorescence Analysis Tool...")
 if initial_dir:
     print(f"📂 Data folder: {initial_dir}")
-print()
-print("Available test files:")
-print("  - Data:          test_data/RM5097.96HL.BNCT.1.CSV")
-print("  - Layout:        test_data/RM5097_layout.csv")
-print("  - BioRad Data:   test_data/TEST01.BIORAD.FORMAT.1.txt")
-print("  - BioRad Layout: test_data/TEST01.BIORAD_layout.csv")
-print()
 
 # Add the project root to sys.path so the package is importable
 sys.path.insert(0, str(Path(__file__).parent))
