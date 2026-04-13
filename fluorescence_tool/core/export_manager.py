@@ -107,12 +107,14 @@ class ExportManager:
                 row_data.update({
                     'Plate_ID': well_info.plate_id or '',
                     'Well': well_id,
+                    'Well_Row': well_row,
+                    'Well_Col': well_col if well_col != 0 else '',
+                    'Sample': well_info.sample or '',
                     'Type': well_info.well_type or '',
-                    'Cell_Count': well_info.cell_count or '',
+                    'number_of_cells/capsules': well_info.cell_count or '',
                     'Group_1': well_info.group_1 or '',
                     'Group_2': well_info.group_2 or '',
                     'Group_3': well_info.group_3 or '',
-                    'Sample': well_info.sample or '',
                     # Add sorting columns temporarily
                     '_Well_Row': well_row,
                     '_Well_Col': well_col
@@ -122,12 +124,14 @@ class ExportManager:
                 row_data.update({
                     'Plate_ID': '',
                     'Well': well_id,
+                    'Well_Row': well_row,
+                    'Well_Col': well_col if well_col != 0 else '',
+                    'Sample': '',
                     'Type': '',
-                    'Cell_Count': '',
+                    'number_of_cells/capsules': '',
                     'Group_1': '',
                     'Group_2': '',
                     'Group_3': '',
-                    'Sample': '',
                     # Add sorting columns temporarily
                     '_Well_Row': well_row,
                     '_Well_Col': well_col
