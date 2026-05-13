@@ -1,8 +1,37 @@
 # Windows Compatibility Plan — WGA Fluorescence Analysis Tool
 
 > **Branch:** `feature/windows-compatibility`
-> **Status:** Implementation-ready
+> **Status:** ⏳ Awaiting GATE 10A — Windows smoke test (all code complete; pending manual validation before merge to `main`)
 > **Last updated:** 2026-05-13
+>
+> ### Implementation Progress
+>
+> | Step | Description | Status |
+> |---|---|---|
+> | Step 0 | Branch setup | ✅ Complete |
+> | Step 1 | TDD — Environment detection tests (RED) | ✅ Complete |
+> | Step 2 | TDD — Restart behavior tests (RED) | ✅ Complete |
+> | Step 3 | Refactor `launch_gui.py` — environment detection (GREEN) | ✅ Complete |
+> | Step 4 | Refactor `launch_gui.py` — replace `os.execv`, add update branching (GREEN) | ✅ Complete |
+> | Step 5 | Add `requirements.in` | ✅ Complete |
+> | Step 6 | Add `tk` to `environment.yml` | ✅ Complete |
+> | Step 7 | Add `setup.bat` | ✅ Complete |
+> | Step 8 | Add `run.bat` | ✅ Complete |
+> | Step 9 | GitHub Actions CI workflow | ✅ Complete — push to remote to trigger CI |
+> | **Step 10** | **Manual validation gate — Windows smoke test** | **⏳ BLOCKING — awaiting your confirmation** |
+> | Step 11 | Update `docs/INSTALLATION.md` | ⬜ Not started (blocked by Step 10) |
+> | Step 12 | Update `README.md` | ⬜ Not started (blocked by Step 10) |
+> | Step 13 | Final review and merge to `main` | ⬜ Not started (blocked by Step 10) |
+>
+> ### ➡️ Your Next Action
+>
+> **Complete GATE 10A** (see [Step 10](#step-10-manual-validation-gate--windows-smoke-test) below):
+> 1. On a Windows 10/11 machine: install Python 3.11 (check "Add Python to PATH") + Git for Windows
+> 2. Clone the repo and double-click `setup.bat` — confirm "Setup complete!"
+> 3. Double-click `run.bat` — confirm the GUI opens
+> 4. Load `test_data\RM5097.96HL.BNCT.1.CSV` + `test_data\RM5097_layout.csv`, click "Process Files"
+> 5. Check GitHub Actions tab — confirm CI is GREEN on both `macos-latest` and `windows-latest`
+> 6. Report results — then Steps 11–13 (docs + merge) can proceed
 
 ---
 

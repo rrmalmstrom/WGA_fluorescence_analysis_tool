@@ -32,22 +32,39 @@ Everything you need to install, launch, and keep the tool up to date.
 
 ### macOS / Linux
 
-- **Anaconda or Miniconda** — the conda package manager
-  - Download Anaconda: https://www.anaconda.com/download
-  - Download Miniconda (lighter): https://docs.conda.io/en/latest/miniconda.html
-- **Git**
+You need **conda** and **Git**. Run these commands in Terminal to check if you already have them:
+
+```bash
+conda --version   # expected output: conda 24.x.x or similar
+git --version     # expected output: git version 2.x.x or similar
+python --version  # expected output: Python 3.x.x (conda manages this)
+```
+
+- If `conda` is missing → install Anaconda or Miniconda:
+  - Anaconda (full): https://www.anaconda.com/download
+  - Miniconda (lighter): https://docs.conda.io/en/latest/miniconda.html
+- If `git` is missing → install Git:
   - Download: https://git-scm.com/downloads
-  - macOS alternative: install Xcode Command Line Tools (`xcode-select --install`)
+  - macOS shortcut: run `xcode-select --install` in Terminal
 
 ### Windows
 
-- **Python 3.11** — from the official python.org installer
+You need **Python 3.11** and **Git for Windows**. Open **Command Prompt** (`Win + R` → type `cmd` → Enter) and run:
+
+```
+python --version   :: expected output: Python 3.11.x
+git --version      :: expected output: git version 2.x.x.windows.x
+pip --version      :: expected output: pip 24.x.x from ...
+```
+
+- If `python` is missing or the version is wrong → install Python 3.11:
   - Download: https://www.python.org/downloads/
   - ⚠️ Use the **python.org installer**, not the Microsoft Store version
   - ⚠️ On the first installer screen, check **"Add Python to PATH"** before clicking Install
-- **Git for Windows**
+- If `git` is missing → install Git for Windows:
   - Download: https://git-scm.com/download/win
   - Accept all default options during installation
+- If `pip` is missing → it is included with the python.org installer; reinstall Python if absent
 
 ---
 
