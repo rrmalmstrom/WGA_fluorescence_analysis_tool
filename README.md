@@ -1,6 +1,6 @@
 # WGA Fluorescence Analysis Tool
 
-> **Documentation:** [User Guide](docs/USER_GUIDE.md) · [Installation](docs/INSTALLATION.md) · [Algorithms](docs/ALGORITHM_DOCUMENTATION.md) · [Technical Reference](docs/TECHNICAL_DOCUMENTATION.md)
+> **Documentation:** [User Guide](docs/USER_GUIDE.md) · [Getting Started](GETTING_STARTED.md) · [Algorithms](docs/ALGORITHM_DOCUMENTATION.md) · [Technical Reference](docs/TECHNICAL_DOCUMENTATION.md)
 
 A desktop GUI application for analyzing WGA (Whole Genome Amplification) fluorescence data from 96-well plate readers. Designed for laboratory scientists who need reliable sigmoid curve fitting, crossing-point detection, and pass/fail assessment without complex setup.
 
@@ -59,7 +59,7 @@ python launch_gui.py
 
 **Windows — double-click launcher:**
 Double-click [`setup.bat`](setup.bat) once (first time only), then double-click [`run.bat`](run.bat) to launch.
-See [docs/INSTALLATION.md](docs/INSTALLATION.md) for full Windows setup instructions.
+See [GETTING_STARTED.md](GETTING_STARTED.md) for full Windows setup instructions.
 
 **Dependencies:**
 
@@ -219,4 +219,4 @@ pytest -v
 
 ## Known Issues
 
-- Windows support added in v1.1.0. Requires Python 3.11 (from python.org) and Git for Windows. See [docs/INSTALLATION.md](docs/INSTALLATION.md) for setup instructions.
+- Windows support added in v1.1.0. Requires Python 3.11 (from python.org) and Git for Windows. See [GETTING_STARTED.md](GETTING_STARTED.md) for setup instructions.

@@ -25,7 +25,7 @@ Before using the fluorescence analysis tool, ensure you have:
 
 - **Data folder**: The folder on your machine where your plate reader output files are stored (`.CSV`, `.txt`, and layout `.csv` files). This is separate from the tool folder.
 - **Tool folder**: The cloned `WGA_fluorescence_analysis_tool/` repository with all the code.
-- **Python Environment**: The tool installed and ready to run (see [INSTALLATION.md](INSTALLATION.md))
+- **Python Environment**: The tool installed and ready to run (see [GETTING_STARTED.md](../GETTING_STARTED.md))
 
 ### Launching the Application
 
@@ -39,9 +39,15 @@ Before using the fluorescence analysis tool, ensure you have:
 
 > All file-open dialogs (Load Data File, Load Layout File) and export dialogs (Save CSV, Export Plot) will default to the data folder you provided.
 
-**Any platform — terminal:**
+**Windows — double-click launcher:**
 
-1. Open your terminal or command prompt
+1. Double-click `run.bat` in File Explorer (inside the tool folder)
+2. When prompted, type the path to your **data folder** or drag-and-drop the folder into the window, then press Enter
+3. The launcher checks for updates, then opens the GUI
+
+**macOS / Linux — terminal (alternative):**
+
+1. Open your terminal
 2. Activate the conda environment:
    ```bash
    conda activate wga-fluorescence-gui
@@ -50,7 +56,18 @@ Before using the fluorescence analysis tool, ensure you have:
    ```bash
    python launch_gui.py [--data-folder /path/to/your/data]
    ```
-   `launch_gui.py` will confirm the correct conda environment is active, check GitHub for updates, then open the GUI.
+
+**Windows — terminal (alternative):**
+
+1. Open Command Prompt or PowerShell in the tool folder
+2. Activate the virtual environment:
+   ```
+   .venv\Scripts\activate
+   ```
+3. Launch:
+   ```
+   python launch_gui.py [--data-folder C:\path\to\your\data]
+   ```
 
 The application window will open with a clean interface ready for your analysis.
 
