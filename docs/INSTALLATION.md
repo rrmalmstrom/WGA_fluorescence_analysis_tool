@@ -5,13 +5,14 @@ Complete installation and setup instructions for the WGA fluorescence analysis t
 ## Table of Contents
 
 1. [System Requirements](#system-requirements)
-2. [Quick Installation](#quick-installation)
-3. [Detailed Installation Steps](#detailed-installation-steps)
-4. [Environment Setup](#environment-setup)
-5. [Verification and Testing](#verification-and-testing)
-6. [Troubleshooting Installation](#troubleshooting-installation)
-7. [Alternative Installation Methods](#alternative-installation-methods)
-8. [Updating and Maintenance](#updating-and-maintenance)
+2. [Windows Installation](#windows-installation)
+3. [Quick Installation (macOS / Linux)](#quick-installation)
+4. [Detailed Installation Steps](#detailed-installation-steps)
+5. [Environment Setup](#environment-setup)
+6. [Verification and Testing](#verification-and-testing)
+7. [Troubleshooting Installation](#troubleshooting-installation)
+8. [Alternative Installation Methods](#alternative-installation-methods)
+9. [Updating and Maintenance](#updating-and-maintenance)
 
 ---
 
@@ -19,10 +20,10 @@ Complete installation and setup instructions for the WGA fluorescence analysis t
 
 ### Minimum Requirements
 
-**Software Prerequisites**
-- Python 3.9–3.12
-- Conda package manager (Anaconda or Miniconda)
-- Git (required for the update-check feature in `launch_gui.py`)
+| Platform | Python | Package Manager | Other |
+|----------|--------|-----------------|-------|
+| macOS / Linux | 3.9–3.12 | Conda (Anaconda or Miniconda) | Git |
+| Windows 10 / 11 | 3.11 (official installer) | pip + venv (built into Python) | Git for Windows |
 
 ### Recommended Specifications
 
@@ -38,7 +39,128 @@ Complete installation and setup instructions for the WGA fluorescence analysis t
 
 ---
 
+## Windows Installation
+
+> **Windows users:** follow this section. macOS / Linux users skip to [Quick Installation](#quick-installation).
+
+### Windows System Requirements
+
+- **Windows 10 or 11** (64-bit)
+- **Python 3.11** — download from https://www.python.org/downloads/
+  ⚠️ Use the **official python.org installer**, not the Microsoft Store version.
+  ⚠️ On the first installer screen, check **"Add Python to PATH"** before clicking Install.
+- **Git for Windows** — download from https://git-scm.com/download/win
+  Accept all defaults during installation.
+
+### Windows Quick Installation
+
+1. **Install Python 3.11** from https://www.python.org/downloads/
+   Check **"Add Python to PATH"** on the first installer screen.
+
+2. **Install Git for Windows** from https://git-scm.com/download/win
+   Accept all defaults.
+
+3. **Clone the repository** — open Command Prompt or PowerShell and run:
+   ```
+   git clone https://github.com/rrmalmstrom/WGA_fluorescence_analysis_tool.git
+   cd WGA_fluorescence_analysis_tool
+   ```
+
+4. **Run first-time setup** — double-click `setup.bat` in File Explorer (inside the tool folder).
+   `setup.bat` will:
+   - Verify Python and Git are on your PATH
+   - Create a `.venv` virtual environment inside the tool folder
+   - Install all pinned dependencies from `requirements.txt`
+   - Verify that `tkinter` (the GUI toolkit) is working
+   - Print a success message when complete
+
+   This may take **3–5 minutes** on first run.
+
+### Windows Daily Launch
+
+Double-click **`run.bat`** in File Explorer each time you want to use the tool.
+
+`run.bat` will:
+1. Activate the `.venv` virtual environment
+2. Prompt you for your **data folder** path (type or paste the path, then press Enter)
+3. Launch `launch_gui.py`, which:
+   - Confirms the virtual environment is active
+   - Checks GitHub for updates — if a new version is available, prompts you to pull and restarts automatically
+   - Opens the application window
+
+> **Data folder:** When a data folder is provided, all file-open dialogs (Load Data File, Load Layout File) and export dialogs (Save CSV, Export Plot) default to that folder.
+
+### Windows Update Behavior
+
+`run.bat` → `launch_gui.py` checks for updates automatically on every launch. When a new version is available on GitHub, it will prompt:
+
+```
+🔄 A new version is available on GitHub.
+Pull updates now? [y/N]:
+```
+
+Type `y` to pull the latest changes and automatically restart with the new version. The launcher also runs `pip install -r requirements.txt -q` after pulling to install any new or updated dependencies.
+
+To update manually without the launcher:
+
+```
+git pull origin main
+.venv\Scripts\pip install -r requirements.txt
+```
+
+### Windows Troubleshooting
+
+#### "'python' is not recognized as an internal or external command"
+
+**Problem:** Python was not added to PATH during installation.
+**Solution:** Reinstall Python 3.11 from https://www.python.org/downloads/ and check **"Add Python to PATH"** on the first installer screen. Alternatively, uninstall and reinstall with that option enabled.
+
+#### "'git' is not recognized as an internal or external command"
+
+**Problem:** Git for Windows is not installed or not on PATH.
+**Solution:** Download and install Git for Windows from https://git-scm.com/download/win. Restart Command Prompt after installation.
+
+#### "requirements.txt not found" (during `setup.bat`)
+
+**Problem:** The repository was downloaded as a ZIP instead of cloned with Git, or the file is missing.
+**Solution:**
+```
+git pull origin main
+```
+Then double-click `setup.bat` again. If you downloaded a ZIP, delete the folder and clone with Git instead (see step 3 of Quick Installation above).
+
+#### "tkinter not available" (during `setup.bat` verification)
+
+**Problem:** Python was installed without the Tcl/Tk component.
+**Solution:** Reinstall Python 3.11 from https://www.python.org/downloads/. During installation, choose **"Customize installation"**, then ensure **"tcl/tk and IDLE"** is checked on the Optional Features screen.
+
+#### Antivirus or SmartScreen blocks `setup.bat` or `run.bat`
+
+**Problem:** Windows Defender SmartScreen or antivirus software flags the `.bat` file.
+**Solution:**
+- Right-click `setup.bat` (or `run.bat`) → **Run as administrator**
+- If SmartScreen shows "Windows protected your PC", click **More info** → **Run anyway**
+- If your antivirus quarantines the file, add the tool folder to your antivirus exclusion list
+
+#### "Virtual environment not found" or `.venv` missing (during `run.bat`)
+
+**Problem:** `setup.bat` was not run, or the `.venv` folder was deleted.
+**Solution:** Double-click `setup.bat` to recreate the virtual environment.
+
+### Windows Uninstall
+
+To completely remove the tool:
+
+1. Delete the `.venv` folder inside the tool directory (this removes all installed packages)
+2. Delete the entire `WGA_fluorescence_analysis_tool` folder
+
+No system-wide changes are made by `setup.bat` or `run.bat` — all files are contained within the tool folder.
+
+---
+
 ## Quick Installation
+
+> **Windows users:** see [Windows Installation](#windows-installation) above. This section is for macOS and Linux.
 
 For users familiar with Python and conda environments:
 
@@ -369,6 +491,15 @@ Then double-click `run.command` again.
 3. Check Python version: `python --version` (should be 3.9–3.12)
 
 ### Platform-Specific Notes
+
+#### Windows
+
+See the dedicated [Windows Installation](#windows-installation) section at the top of this guide for full setup, daily launch, troubleshooting, and uninstall instructions.
+
+**Key points:**
+- Use `setup.bat` (first time) and `run.bat` (daily) — do **not** use `setup.sh` or `run.command`
+- Python must be installed from python.org (not the Microsoft Store)
+- All dependencies are installed into a `.venv` folder inside the tool directory — no system-wide changes
 
 #### macOS
 
