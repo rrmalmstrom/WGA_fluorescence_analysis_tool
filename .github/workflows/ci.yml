@@ -10,6 +10,7 @@ on:
     branches: ["**"]
   pull_request:
     branches: [main]
+  workflow_dispatch:   # allow manual trigger from GitHub Actions UI
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -44,10 +45,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
         # Note: requirements.txt must exist before this step runs.
-        # If it does not exist yet (first push of requirements.in),
-        # the compile-requirements job below will generate it.
-        # On the very first push, this step may fail — that is acceptable.
-        # Re-run the workflow after requirements.txt is committed.
+        # If it does not exist yet, run the compile-requirements job first
+        # by triggering it manually from the GitHub Actions UI (workflow_dispatch).
 
       - name: Run pytest
         env:
@@ -60,11 +59,9 @@ jobs:
   compile-requirements:
     name: pip-compile (Windows)
     runs-on: windows-latest
-    # Only run when requirements.in changes
-    if: |
-      github.event_name == 'push' &&
-      contains(github.event.head_commit.modified, 'requirements.in') ||
-      contains(github.event.head_commit.added, 'requirements.in')
+    # Run on every push to the feature branch (not PRs) so the bootstrap
+    # case is handled automatically. The commit step is a no-op if nothing changed.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout repository
