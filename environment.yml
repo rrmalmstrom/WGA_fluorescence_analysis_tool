@@ -16,6 +16,7 @@ channels:
 
 dependencies:
   - python >=3.9,<3.13
+  - tk                      # explicit tkinter dependency for conda reliability
   - numpy >=2.0,<3.0
   - scipy >=1.13,<2.0
   - pandas >=2.0,<3.0
