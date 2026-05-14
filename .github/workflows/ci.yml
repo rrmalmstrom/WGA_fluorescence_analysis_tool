@@ -1,0 +1,95 @@
+# .github/workflows/ci.yml
+# CI for WGA Fluorescence Analysis Tool
+# - Runs pytest on macOS and Windows on every push
+# - Regenerates requirements.txt on Windows when requirements.in changes
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:   # allow manual trigger from GitHub Actions UI
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Run pytest on macOS and Windows
+  # ---------------------------------------------------------------------------
+  test:
+    name: pytest (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies (macOS — pip from requirements.in)
+        if: runner.os == 'macOS'
+        run: |
+          python -m pip install --upgrade pip
+          pip install "numpy>=2.0,<3.0" "scipy>=1.13,<2.0" "pandas>=2.0,<3.0" "matplotlib>=3.9,<4.0" "pytest>=7.0"
+
+      - name: Install dependencies (Windows — pip from requirements.txt)
+        if: runner.os == 'Windows'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+        # Note: requirements.txt must exist before this step runs.
+        # If it does not exist yet, run the compile-requirements job first
+        # by triggering it manually from the GitHub Actions UI (workflow_dispatch).
+
+      - name: Run pytest
+        env:
+          MPLBACKEND: Agg   # use non-interactive backend on headless CI runners
+        run: pytest -v --tb=short
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Regenerate requirements.txt on Windows when requirements.in changes
+  # ---------------------------------------------------------------------------
+  compile-requirements:
+    name: pip-compile (Windows)
+    runs-on: windows-latest
+    # Needs write access to push the generated requirements.txt back to the branch
+    permissions:
+      contents: write
+    # Run on every push to the feature branch (not PRs) so the bootstrap
+    # case is handled automatically. The commit step is a no-op if nothing changed.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Use a token with write access so we can push the commit back
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pip-tools
+        run: pip install pip-tools
+
+      - name: Compile requirements.txt from requirements.in
+        run: pip-compile requirements.in --output-file requirements.txt --quiet
+
+      - name: Commit requirements.txt if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add requirements.txt
+          git diff --staged --quiet || git commit -m "chore: regenerate requirements.txt from requirements.in [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}

@@ -8,6 +8,9 @@ Usage:
 
 Or double-click run.command on macOS (handles conda activation and data folder
 prompt automatically).
+
+On Windows, double-click run.bat (handles venv activation and data folder
+prompt automatically).
 """
 
 import argparse
@@ -18,51 +21,57 @@ from pathlib import Path
 
 
 # =============================================================================
-# Parse command-line arguments
+# Helper functions — importable and testable without triggering GUI launch
 # =============================================================================
 
-parser = argparse.ArgumentParser(description="WGA Fluorescence Analysis Tool launcher")
-parser.add_argument(
-    "--data-folder",
-    metavar="PATH",
-    default=None,
-    help="Path to the data folder (sets default directory for file dialogs and exports)",
-)
-args = parser.parse_args()
-initial_dir: str | None = args.data_folder
+def detect_environment() -> tuple[str, str]:
+    """
+    Detect whether running inside the expected conda env or an active venv.
+
+    Returns:
+        (env_type, env_name) where env_type is one of:
+            "conda"  — CONDA_DEFAULT_ENV == "wga-fluorescence-gui"
+            "venv"   — VIRTUAL_ENV is set (any path)
+            "none"   — neither condition is met
+        env_name is the environment name or path basename.
+    """
+    conda_env = os.environ.get("CONDA_DEFAULT_ENV", "")
+    if conda_env == "wga-fluorescence-gui":
+        return ("conda", conda_env)
+    venv_path = os.environ.get("VIRTUAL_ENV", "")
+    if venv_path:
+        # Use os.path.basename after normalising separators so this works
+        # correctly on both macOS (where Path treats \ as a literal char)
+        # and Windows (where Path treats \ as a separator).
+        normalised = venv_path.replace("\\", "/")
+        return ("venv", Path(normalised).name)
+    return ("none", "")
 
 
-# =============================================================================
-# Step 1 — Check and report conda environment
-# =============================================================================
+def restart_launcher() -> None:
+    """
+    Restart this script by spawning a new process and exiting the current one.
 
-REQUIRED_ENV = "wga-fluorescence-gui"
-current_env = os.environ.get("CONDA_DEFAULT_ENV", "")
-
-if current_env == REQUIRED_ENV:
-    print(f"🐍 Conda environment: {current_env} ✅")
-else:
-    if current_env:
-        print(f"❌ Wrong conda environment: '{current_env}'")
-    else:
-        print("❌ No conda environment is active.")
-    print("   Please run:")
-    print("     conda activate wga-fluorescence-gui")
-    print("     python launch_gui.py")
-    sys.exit(1)
+    Uses subprocess.Popen + sys.exit(0) instead of os.execv for cross-platform
+    reliability. os.execv is unreliable on Windows (process replacement via
+    CreateProcess + TerminateProcess can leave the window in an inconsistent
+    state).
+    """
+    subprocess.Popen([sys.executable] + sys.argv)
+    sys.exit(0)
 
 
-# =============================================================================
-# Step 2 — Check for updates and report result
-# =============================================================================
-
-def check_for_updates() -> bool:
+def check_for_updates(env_type: str = "conda") -> bool:
     """
     Check whether the local repository is behind the remote and offer to pull.
 
     Always prints status to the terminal so the user knows what is happening.
     Returns True in all cases so the caller can always proceed to launch the
     GUI — update failures are non-fatal warnings, not hard errors.
+
+    Args:
+        env_type: "conda" or "venv" — determines which update command to run
+                  after a successful git pull.
     """
 
     print("🔍 Checking for updates...")
@@ -143,8 +152,20 @@ def check_for_updates() -> bool:
                 text=True,
             )
             if pull_result.returncode == 0:
-                print("✅ Update complete. Restarting with new version...")
-                os.execv(sys.executable, [sys.executable] + sys.argv)
+                print("✅ Update complete. Updating environment packages...")
+
+                # Branch on environment type for the package update command
+                if env_type == "conda":
+                    update_cmd = ["conda", "env", "update", "-f", "environment.yml", "--prune"]
+                else:  # venv
+                    update_cmd = ["pip", "install", "-r", "requirements.txt", "-q"]
+
+                update_result = subprocess.run(update_cmd, capture_output=True, text=True)
+                if update_result.returncode != 0:
+                    print("⚠ Warning: environment update failed. Launching with current packages.")
+
+                print("🔄 Restarting with new version...")
+                restart_launcher()
             else:
                 print("❌ Update failed. Launching with current version.")
                 return True
@@ -158,34 +179,85 @@ def check_for_updates() -> bool:
     return True
 
 
-check_for_updates()
-
-
 # =============================================================================
-# Step 3 — Launch the GUI
+# Main entry point — all top-level execution is guarded here
 # =============================================================================
 
-print("🚀 Launching WGA Fluorescence Analysis Tool...")
-if initial_dir:
-    print(f"📂 Data folder: {initial_dir}")
+def main() -> None:
+    """
+    Orchestrate the full launch sequence:
+      1. Parse arguments
+      2. Detect and validate the active environment
+      3. Check for updates
+      4. Launch the GUI
+    """
 
-# Add the project root to sys.path so the package is importable
-sys.path.insert(0, str(Path(__file__).parent))
+    # -------------------------------------------------------------------------
+    # Step 1 — Parse command-line arguments
+    # -------------------------------------------------------------------------
+    parser = argparse.ArgumentParser(description="WGA Fluorescence Analysis Tool launcher")
+    parser.add_argument(
+        "--data-folder",
+        metavar="PATH",
+        default=None,
+        help="Path to the data folder (sets default directory for file dialogs and exports)",
+    )
+    args = parser.parse_args()
+    initial_dir: str | None = args.data_folder
 
-try:
-    from fluorescence_tool.gui.main_window import MainWindow
+    # -------------------------------------------------------------------------
+    # Step 2 — Check and report environment
+    # -------------------------------------------------------------------------
+    env_type, env_name = detect_environment()
 
-    app = MainWindow(initial_dir=initial_dir)
-    app.run()
+    if env_type == "conda":
+        print(f"🐍 Conda environment: {env_name} ✅")
+    elif env_type == "venv":
+        print(f"🐍 Virtual environment: {env_name} ✅")
+    else:
+        print("❌ No recognized environment is active.")
+        print("")
+        print("  Mac/Linux users:")
+        print("    conda activate wga-fluorescence-gui")
+        print("    python launch_gui.py")
+        print("")
+        print("  Windows users:")
+        print("    Double-click run.bat")
+        sys.exit(1)
 
-except KeyboardInterrupt:
-    print("\nApplication closed by user.")
-except ImportError as e:
-    print(f"Error importing application components: {e}")
-    print("Please ensure all dependencies are installed.")
-    sys.exit(1)
-except Exception as e:
-    print(f"Error launching GUI: {e}")
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
+    # -------------------------------------------------------------------------
+    # Step 3 — Check for updates
+    # -------------------------------------------------------------------------
+    check_for_updates(env_type=env_type)
+
+    # -------------------------------------------------------------------------
+    # Step 4 — Launch the GUI
+    # -------------------------------------------------------------------------
+    print("🚀 Launching WGA Fluorescence Analysis Tool...")
+    if initial_dir:
+        print(f"📂 Data folder: {initial_dir}")
+
+    # Add the project root to sys.path so the package is importable
+    sys.path.insert(0, str(Path(__file__).parent))
+
+    try:
+        from fluorescence_tool.gui.main_window import MainWindow
+
+        app = MainWindow(initial_dir=initial_dir)
+        app.run()
+
+    except KeyboardInterrupt:
+        print("\nApplication closed by user.")
+    except ImportError as e:
+        print(f"Error importing application components: {e}")
+        print("Please ensure all dependencies are installed.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error launching GUI: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
