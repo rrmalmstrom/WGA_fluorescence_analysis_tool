@@ -88,7 +88,7 @@ class PassFailResult:
     """
     well_id: str
     passed: bool                       # True if well passed, False if failed
-    cp_value: Optional[float]          # Crossing point value used (minutes)
+    cp_value: Optional[float]          # Crossing point value used (hours)
     fluorescence_change_value: Optional[float] # Fluorescence change value used
     cp_passed: bool                    # Whether CP criterion was met (CP < threshold)
     fluorescence_change_passed: bool   # Whether fluorescence change criterion was met (change > threshold)

@@ -429,42 +429,55 @@ The main entry point for programmatic analysis.
 class FluorescenceAnalysisPipeline:
     """
     Complete analysis pipeline for fluorescence data.
-    
+
     Coordinates file parsing, curve fitting, threshold analysis,
-    and pass/fail evaluation in a single workflow.
+    and statistical analysis in a single workflow.
     """
-    
-    def __init__(self):
-        """Initialize the analysis pipeline."""
+
+    def __init__(self, config: Optional[AnalysisConfiguration] = None):
+        """
+        Initialize analysis pipeline.
+
+        Args:
+            config: Analysis configuration (uses defaults if None).
+                    Key config fields:
+                      curve_fitting_timeout (int, default 2)
+                      baseline_percentage (float, default 0.10)
+                      threshold_method (str, default "qc_second_derivative")
+        """
+        self.config = config or AnalysisConfiguration()
+        self.curve_fitter = CurveFitter(timeout_seconds=self.config.curve_fitting_timeout)
+        self.threshold_analyzer = ThresholdAnalyzer(baseline_percentage=self.config.baseline_percentage)
+        self.statistical_analyzer = StatisticalAnalyzer()
         self.bmg_parser = BMGOmega3Parser()
         self.biorad_parser = BioRadParser()
         self.layout_parser = LayoutParser()
-        self.curve_fitter = CurveFitter()
-        self.threshold_analyzer = ThresholdAnalyzer()
-        self.pass_fail_analyzer = PassFailAnalyzer()
-    
-    def analyze_files(self,
-                     data_file_path: str,
-                     layout_file_path: str,
-                     cycle_time_minutes: Optional[float] = None) -> Dict[str, Any]:
+
+    def analyze_complete_dataset(self,
+                                 fluorescence_file: str,
+                                 layout_file: Optional[str] = None,
+                                 cycle_time_minutes: Optional[float] = None) -> PipelineResult:
         """
         Perform complete analysis on fluorescence data files.
-        
+
         Args:
-            data_file_path: Path to fluorescence data file
-            layout_file_path: Path to layout CSV file
-            cycle_time_minutes: Cycle time for BioRad files (optional)
-            
+            fluorescence_file: Path to fluorescence data file (.csv, .txt, or .xlsx)
+            layout_file: Path to layout CSV file (optional)
+            cycle_time_minutes: Cycle time for BioRad .txt files (required);
+                                ignored for .xlsx (auto-computed from timestamps)
+
         Returns:
-            Dictionary containing complete analysis results
-            
-        Raises:
-            FileFormatError: If file format is not supported
-            DataValidationError: If data validation fails
-            CurveFittingError: If curve fitting fails
+            PipelineResult dataclass with fields:
+              .success (bool)
+              .fluorescence_data (FluorescenceData)
+              .layout_data (List[WellInfo])
+              .curve_results (Dict[str, CurveFitResult])
+              .threshold_results (Dict[str, ThresholdResult])
+              .statistical_results (StatisticalResult)
+              .total_wells_processed, .successful_curve_fits, .overall_success_rate
+              .error_message, .processing_warnings
         """
-        # Implementation details...
-        pass
+        ...
 ```
 
 ### Usage Examples
@@ -474,19 +487,21 @@ class FluorescenceAnalysisPipeline:
 ```python
 from fluorescence_tool.algorithms.analysis_pipeline import FluorescenceAnalysisPipeline
 
-# Initialize pipeline
+# Initialize pipeline (uses default AnalysisConfiguration)
 pipeline = FluorescenceAnalysisPipeline()
 
-# Analyze files
-results = pipeline.analyze_files(
-    data_file_path="data/RM5097.96HL.BNCT.1.CSV",
-    layout_file_path="data/RM5097_layout.csv"
+# Analyze files — returns a PipelineResult dataclass
+result = pipeline.analyze_complete_dataset(
+    fluorescence_file="data/RM5097.96HL.BNCT.1.CSV",
+    layout_file="data/RM5097_layout.csv"
 )
 
-# Access results
-curve_fits = results['curve_fits']
-pass_fail_results = results['pass_fail_results']
-summary_stats = results['summary_statistics']
+# Access results via dataclass fields
+if result.success:
+    curve_results = result.curve_results          # Dict[str, CurveFitResult]
+    threshold_results = result.threshold_results  # Dict[str, ThresholdResult]
+    stats = result.statistical_results            # StatisticalResult
+    print(f"Success rate: {result.overall_success_rate:.1f}%")
 ```
 
 ---
