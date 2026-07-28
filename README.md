@@ -88,7 +88,7 @@ python launch_gui.py [--data-folder /path/to/data]
 ```
 
 Each time the app launches, `launch_gui.py` automatically:
-1. Confirms the correct conda environment (`wga-fluorescence-gui`) is active
+1. Confirms the correct environment is active — the `wga-fluorescence-gui` conda environment (macOS/Linux) or an active `.venv` virtual environment (Windows)
 2. Checks GitHub for updates — if your local branch is behind the remote, you will be prompted:
 
 ```
