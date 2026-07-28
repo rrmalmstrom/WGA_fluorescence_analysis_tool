@@ -6,7 +6,6 @@ functionality that has been validated with real fluorescence data.
 """
 
 import numpy as np
-import signal
 from typing import Optional, List, Tuple, Dict, Any
 from dataclasses import dataclass
 from scipy.optimize import curve_fit
@@ -29,11 +28,6 @@ class CurveFitResult:
     final_fluorescence: Optional[float] = None
     fluorescence_change: Optional[float] = None
     percent_change: Optional[float] = None
-
-
-class TimeoutException(Exception):
-    """Exception raised when curve fitting times out."""
-    pass
 
 
 class CurveFitter:
@@ -189,10 +183,6 @@ class CurveFitter:
                 fit_type="polynomial"
             )
 
-    def _timeout_handler(self, signum, frame):
-        """Signal handler for timeout."""
-        raise TimeoutException("Curve fitting timed out")
-    
     def _estimate_inflection_point(self, time_points: np.ndarray, fluo_values: np.ndarray) -> float:
         """
         Estimate the inflection point (time of maximum rate of change).
