@@ -192,32 +192,16 @@ def calculate_r_squared(observed: np.ndarray, predicted: np.ndarray) -> float:
 
 #### Parameter Validation
 
-```python
-def validate_fitted_parameters(params: np.ndarray, 
-                              covariance: np.ndarray) -> Dict[str, bool]:
-    """
-    Validate fitted parameters for biological plausibility.
-    
-    Args:
-        params: Fitted parameters [a, b, c, d, e]
-        covariance: Parameter covariance matrix
-        
-    Returns:
-        Dictionary of validation results
-    """
-    a, b, c, d, e = params
-    
-    validation = {
-        'amplitude_positive': a > 0,
-        'baseline_reasonable': d >= 0,
-        'inflection_in_range': 0 <= c <= max_time,
-        'slope_reasonable': abs(b) <= 10,
-        'covariance_finite': np.all(np.isfinite(covariance)),
-        'parameters_finite': np.all(np.isfinite(params))
-    }
-    
-    return validation
-```
+After a successful sigmoid fit, the fitted parameters are validated for biological plausibility. The checks performed are:
+
+- **Amplitude positive** (`a > 0`): The curve must rise, not fall
+- **Baseline reasonable** (`d >= 0`): Fluorescence cannot be negative
+- **Inflection in range** (`0 <= c <= max_time`): The inflection point must fall within the measurement window
+- **Slope bounded** (`|b| <= 10`): Enforced by the `bounds` argument to `curve_fit`; prevents runaway fits
+- **Covariance finite**: `np.all(np.isfinite(pcov))` — infinite covariance indicates a degenerate fit
+- **Parameters finite**: `np.all(np.isfinite(popt))` — NaN/inf parameters are rejected
+
+Fits failing any of these checks are discarded and the fallback strategy is attempted.
 
 ---
 
@@ -322,70 +306,10 @@ for i in range(1, len(fitted_values)):
 ```
 
 This function is available as a utility but is **not called by the analysis pipeline**. The pipeline exclusively uses the second derivative method described above.
+
 ### Quality Control Filters
 
-#### Data Quality Assessment
-
-```python
-def assess_data_quality(measurements: np.ndarray) -> Dict[str, Any]:
-    """
-    Comprehensive data quality assessment.
-    
-    Returns:
-        Dictionary with quality metrics and flags
-    """
-    quality = {}
-    
-    # Signal variation
-    signal_range = np.max(measurements) - np.min(measurements)
-    quality['signal_range'] = signal_range
-    quality['sufficient_variation'] = signal_range > 0.1
-    
-    # Noise assessment
-    noise_estimate = np.std(np.diff(measurements))
-    signal_estimate = np.mean(measurements)
-    quality['signal_to_noise'] = signal_estimate / noise_estimate if noise_estimate > 0 else np.inf
-    
-    # Trend assessment
-    slope, _, r_value, _, _ = scipy.stats.linregress(range(len(measurements)), measurements)
-    quality['linear_trend'] = abs(r_value) > 0.7
-    quality['positive_trend'] = slope > 0
-    
-    # Outlier detection
-    z_scores = np.abs(scipy.stats.zscore(measurements))
-    quality['outliers'] = np.sum(z_scores > 3)
-    quality['outlier_fraction'] = quality['outliers'] / len(measurements)
-    
-    return quality
-```
-
-#### Threshold Validation
-
-```python
-def validate_threshold(threshold: float, measurements: np.ndarray) -> bool:
-    """
-    Validate that threshold is reasonable for the data.
-    
-    Args:
-        threshold: Calculated threshold value
-        measurements: Raw fluorescence measurements
-        
-    Returns:
-        True if threshold is valid, False otherwise
-    """
-    min_val = np.min(measurements)
-    max_val = np.max(measurements)
-    
-    # Threshold should be between min and max
-    if threshold <= min_val or threshold >= max_val:
-        return False
-    
-    # Threshold should be in lower 50% of range for typical growth curves
-    if threshold > min_val + 0.5 * (max_val - min_val):
-        return False
-    
-    return True
-```
+The two-stage QC gate described in the [Crossing Point Detection](#crossing-point-detection) section above is the primary quality control mechanism. See that section for the full description of Stage 1 (curve fitter percent-change check) and Stage 2 (threshold analyzer max-signal check).
 
 ---
 
@@ -425,49 +349,7 @@ CP_threshold = 6.5 hours (default)
 
 ### Statistical Validation
 
-#### Performance Metrics
-
-```python
-def calculate_performance_metrics(true_labels: List[int],
-                                 predictions: List[int]) -> Dict[str, float]:
-    """
-    Calculate comprehensive performance metrics.
-    
-    Args:
-        true_labels: True classifications (1 = positive, 0 = negative)
-        predictions: Predicted classifications (1 = positive, 0 = negative)
-        
-    Returns:
-        Dictionary of performance metrics
-    """
-    tp = sum(1 for true, pred in zip(true_labels, predictions) if true == 1 and pred == 1)
-    fp = sum(1 for true, pred in zip(true_labels, predictions) if true == 0 and pred == 1)
-    tn = sum(1 for true, pred in zip(true_labels, predictions) if true == 0 and pred == 0)
-    fn = sum(1 for true, pred in zip(true_labels, predictions) if true == 1 and pred == 0)
-    
-    # Basic metrics
-    sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0  # True positive rate
-    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0  # True negative rate
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0    # Positive predictive value
-    npv = tn / (tn + fn) if (tn + fn) > 0 else 0          # Negative predictive value
-    
-    # Derived metrics
-    accuracy = (tp + tn) / (tp + fp + tn + fn) if (tp + fp + tn + fn) > 0 else 0
-    f1_score = 2 * (precision * sensitivity) / (precision + sensitivity) if (precision + sensitivity) > 0 else 0
-    
-    return {
-        'sensitivity': sensitivity,
-        'specificity': specificity,
-        'precision': precision,
-        'negative_predictive_value': npv,
-        'accuracy': accuracy,
-        'f1_score': f1_score,
-        'true_positives': tp,
-        'false_positives': fp,
-        'true_negatives': tn,
-        'false_negatives': fn
-    }
-```
+Pass/fail performance is validated by comparing tool output against expert classification of the same wells. The `PassFailAnalyzer` in `fluorescence_tool/algorithms/pass_fail_analysis.py` applies the dual criteria (CP < threshold AND ΔF > threshold) and returns a `PassFailResult` for each well. Summary statistics (pass rate, per-criterion failure counts) are available via `PassFailAnalyzer.get_summary_statistics()`.
 
 ---
 
@@ -477,69 +359,16 @@ def calculate_performance_metrics(true_labels: List[int],
 
 #### Group-Based Analysis
 
-```python
-def calculate_group_statistics(results: List[Dict],
-                              group_by: str = 'well_type') -> Dict[str, Dict]:
-    """
-    Calculate descriptive statistics grouped by specified criteria.
-    
-    Args:
-        results: List of analysis results with grouping information
-        group_by: Grouping criterion ('well_type', 'group_1', etc.)
-        
-    Returns:
-        Nested dictionary of statistics by group
-    """
-    from collections import defaultdict
-    import scipy.stats as stats
-    
-    # Group results
-    groups = defaultdict(list)
-    for result in results:
-        group_key = result.get(group_by, 'unknown')
-        groups[group_key].append(result)
-    
-    # Calculate statistics for each group
-    group_stats = {}
-    for group_name, group_results in groups.items():
-        # Extract numeric values
-        cp_values = [r['crossing_point'] for r in group_results
-                    if r.get('crossing_point') is not None]
-        df_values = [r['fluorescence_change'] for r in group_results
-                    if r.get('fluorescence_change') is not None]
-        r2_values = [r['r_squared'] for r in group_results
-                    if r.get('r_squared') is not None]
-        
-        group_stats[group_name] = {
-            'n_wells': len(group_results),
-            'crossing_points': calculate_descriptive_stats(cp_values),
-            'fluorescence_changes': calculate_descriptive_stats(df_values),
-            'r_squared_values': calculate_descriptive_stats(r2_values)
-        }
-    
-    return group_stats
+The `StatisticalAnalyzer` in `fluorescence_tool/algorithms/statistical_analysis.py` computes descriptive statistics grouped by well type and the optional `Group_1`, `Group_2`, `Group_3` layout columns. For each group the following metrics are calculated across all wells with successful fits:
 
-def calculate_descriptive_stats(values: List[float]) -> Dict[str, float]:
-    """Calculate comprehensive descriptive statistics."""
-    if not values:
-        return {'n': 0}
-    
-    values = np.array(values)
-    
-    return {
-        'n': len(values),
-        'mean': np.mean(values),
-        'median': np.median(values),
-        'std': np.std(values, ddof=1),
-        'sem': np.std(values, ddof=1) / np.sqrt(len(values)),
-        'min': np.min(values),
-        'max': np.max(values),
-        'q25': np.percentile(values, 25),
-        'q75': np.percentile(values, 75),
-        'iqr': np.percentile(values, 75) - np.percentile(values, 25),
-        'cv': np.std(values, ddof=1) / np.mean(values) * 100 if np.mean(values) != 0 else 0
-    }
-```
+| Metric | Description |
+|--------|-------------|
+| `n` | Number of wells |
+| `mean`, `median` | Central tendency of CP and ΔF values |
+| `std`, `sem` | Spread (sample standard deviation and standard error) |
+| `min`, `max` | Range |
+| `q25`, `q75`, `iqr` | Quartiles and interquartile range |
+| `cv` | Coefficient of variation (%) |
 
 ---
 
@@ -547,70 +376,11 @@ def calculate_descriptive_stats(values: List[float]) -> Dict[str, float]:
 
 ### Data Quality Assessment
 
-#### Comprehensive Quality Metrics
+Quality is assessed at two levels:
 
-```python
-def assess_overall_data_quality(fluorescence_data: FluorescenceData,
-                               analysis_results: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Comprehensive assessment of data and analysis quality.
-    
-    Args:
-        fluorescence_data: Raw fluorescence data
-        analysis_results: Complete analysis results
-        
-    Returns:
-        Quality assessment report
-    """
-    quality_report = {
-        'data_quality': {},
-        'analysis_quality': {},
-        'recommendations': []
-    }
-    
-    # Data quality assessment
-    measurements = fluorescence_data.measurements
-    time_points = fluorescence_data.time_points
-    
-    # Signal quality
-    signal_ranges = np.max(measurements, axis=1) - np.min(measurements, axis=1)
-    quality_report['data_quality']['signal_ranges'] = {
-        'mean': np.mean(signal_ranges),
-        'median': np.median(signal_ranges),
-        'min': np.min(signal_ranges),
-        'max': np.max(signal_ranges),
-        'wells_with_low_signal': np.sum(signal_ranges < 100)
-    }
-    
-    # Time series quality
-    time_intervals = np.diff(time_points)
-    quality_report['data_quality']['time_series'] = {
-        'total_duration': time_points[-1] - time_points[0],
-        'n_timepoints': len(time_points),
-        'mean_interval': np.mean(time_intervals),
-        'interval_consistency': np.std(time_intervals) / np.mean(time_intervals)
-    }
-    
-    # Analysis quality assessment
-    if 'curve_fits' in analysis_results:
-        curve_fits = analysis_results['curve_fits']
-        successful_fits = [r for r in curve_fits.values() if r.success]
-        
-        if successful_fits:
-            r_squared_values = [r.r_squared for r in successful_fits]
-            quality_report['analysis_quality']['curve_fitting'] = {
-                'success_rate': len(successful_fits) / len(curve_fits),
-                'mean_r_squared': np.mean(r_squared_values),
-                'median_r_squared': np.median(r_squared_values),
-                'excellent_fits': np.sum(np.array(r_squared_values) >= 0.95),
-                'poor_fits': np.sum(np.array(r_squared_values) < 0.70)
-            }
-    
-    # Generate recommendations
-    quality_report['recommendations'] = generate_quality_recommendations(quality_report)
-    
-    return quality_report
-```
+**Per-well fit quality** — R² is calculated for every sigmoid fit and categorised as Excellent (≥ 0.95), Good (≥ 0.85), Fair (≥ 0.70), or Poor (< 0.70). Wells with polynomial fits (`fit_type="polynomial"`) are QC-failing wells that did not meet the 10% percent-change threshold.
+
+**Dataset-level quality** — The `StatisticalAnalyzer` reports overall success rates (fraction of wells with successful sigmoid fits and valid CPs), mean R², and per-group statistics. These are available in the `StatisticalResult` returned by `analyze_complete_dataset()`.
 
 ---
 
@@ -620,113 +390,19 @@ def assess_overall_data_quality(fluorescence_data: FluorescenceData,
 
 #### Synthetic Data Validation
 
-```python
-def validate_with_synthetic_data() -> Dict[str, Any]:
-    """
-    Validate algorithms using synthetic data with known parameters.
-    
-    Returns:
-        Validation results comparing fitted vs. true parameters
-    """
-    # Generate synthetic sigmoid data
-    true_params = [1000, 1.5, 12, 500, 0.1]  # [a, b, c, d, e]
-    time_points = np.linspace(0, 24, 50)
-    
-    # Generate clean sigmoid
-    true_curve = sigmoid_5param(time_points, *true_params)
-    
-    # Add realistic noise
-    noise_level = 20  # RFU
-    noisy_measurements = true_curve + np.random.normal(0, noise_level, len(time_points))
-    
-    # Fit curve
-    fitter = CurveFitter()
-    result = fitter.fit_curve(time_points, noisy_measurements, "synthetic_well")
-    
-    if result.success:
-        fitted_params = result.parameters
-        
-        # Calculate parameter errors
-        param_errors = {}
-        param_names = ['amplitude', 'slope', 'inflection', 'baseline', 'linear']
-        
-        for i, (true_val, fitted_val, name) in enumerate(zip(true_params, fitted_params, param_names)):
-            relative_error = abs(fitted_val - true_val) / abs(true_val) * 100
-            param_errors[name] = {
-                'true_value': true_val,
-                'fitted_value': fitted_val,
-                'absolute_error': abs(fitted_val - true_val),
-                'relative_error_percent': relative_error
-            }
-        
-        return {
-            'validation_successful': True,
-            'r_squared': result.r_squared,
-            'parameter_errors': param_errors,
-            'mean_relative_error': np.mean([e['relative_error_percent'] for e in param_errors.values()]),
-            'noise_level': noise_level
-        }
-    else:
-        return {
-            'validation_successful': False,
-            'error_message': result.error_message
-        }
-```
+Algorithm correctness can be verified using synthetic data with known parameters. The approach is:
 
-#### Cross-Platform Validation
+1. Choose true parameters, e.g. `[a=1000, b=1.5, c=12, d=500, e=0.1]`
+2. Generate a clean sigmoid over a 0–24 h time range
+3. Add Gaussian noise (e.g. σ = 20 RFU) to simulate instrument noise
+4. Run `CurveFitter().fit_curve()` and compare fitted parameters to true values
+5. Confirm R² > 0.95 and relative parameter errors < 5%
 
-```python
-def compare_with_reference_implementation(test_data_path: str) -> Dict[str, Any]:
-    """
-    Compare results with reference implementation or published data.
-    
-    Args:
-        test_data_path: Path to reference dataset with known results
-        
-    Returns:
-        Comparison results and agreement metrics
-    """
-    # Load reference data (would be actual reference results)
-    reference_results = load_reference_data(test_data_path)
-    
-    # Analyze same data with our implementation
-    our_results = analyze_reference_dataset(test_data_path)
-    
-    # Compare results
-    comparison = {
-        'crossing_point_agreement': [],
-        'r_squared_agreement': [],
-        'parameter_agreement': []
-    }
-    
-    for well_id in reference_results.keys():
-        if well_id in our_results:
-            ref = reference_results[well_id]
-            our = our_results[well_id]
-            
-            # Compare crossing points
-            if ref.get('crossing_point') and our.get('crossing_point'):
-                cp_diff = abs(ref['crossing_point'] - our['crossing_point'])
-                comparison['crossing_point_agreement'].append(cp_diff)
-            
-            # Compare R-squared values
-            if ref.get('r_squared') and our.get('r_squared'):
-                r2_diff = abs(ref['r_squared'] - our['r_squared'])
-                comparison['r_squared_agreement'].append(r2_diff)
-    
-    # Calculate agreement statistics
-    agreement_stats = {}
-    for metric, differences in comparison.items():
-        if differences:
-            agreement_stats[metric] = {
-                'mean_difference': np.mean(differences),
-                'std_difference': np.std(differences),
-                'max_difference': np.max(differences),
-                'agreement_within_5_percent': np.sum(np.array(differences) < 0.05) / len(differences)
-            }
-    
-    return agreement_stats
-```
+The `tests/verification/verify_curve_fitting.py` script performs this check against real test data files.
+
+#### Cross-Dataset Validation
+
+Results can be compared across datasets by exporting the CSV summary (via `ExportManager`) and comparing CP values, R² distributions, and pass rates between runs. The `tests/verification/end_to_end_verification.py` script provides an automated end-to-end check against the files in `tests/verification/verification_input_files/`.
 
 ---
 
@@ -803,8 +479,8 @@ def compare_with_reference_implementation(test_data_path: str) -> Dict[str, Any]
 - Parameter estimation within 5% of synthetic data
 - Robust performance across different data patterns
 
-**Threshold Detection Precision**
-- Sub-timepoint accuracy through interpolation
+**Crossing Point Precision**
+- Sub-timepoint accuracy via 20× fine-resolution sigmoid evaluation
 - Consistent results across replicates (CV < 10%)
 - Validated against manual analysis
 - Appropriate for quantitative applications
