@@ -43,7 +43,7 @@
    - [Step 8: Add run.bat](#step-8-add-runbat)
    - [Step 9: GitHub Actions CI Workflow](#step-9-github-actions-ci-workflow)
    - [Step 10: Manual Validation Gate — Windows Smoke Test](#step-10-manual-validation-gate--windows-smoke-test)
-   - [Step 11: Update docs/INSTALLATION.md](#step-11-update-docsinstallationmd)
+   - [Step 11: Update GETTING_STARTED.md](#step-11-update-getting_startedmd)
    - [Step 12: Update README.md](#step-12-update-readmemd)
    - [Step 13: Final Review and Merge](#step-13-final-review-and-merge)
 6. [Manual Validation Gates Summary](#6-manual-validation-gates-summary)
@@ -1051,7 +1051,7 @@ Write a check-in message to the developer and wait for confirmation before proce
 
 ---
 
-### Step 11: Update docs/INSTALLATION.md
+### Step 11: Update GETTING_STARTED.md
 
 **TDD phase: No tests** — documentation only.
 
@@ -1059,33 +1059,27 @@ Write a check-in message to the developer and wait for confirmation before proce
 
 **What the coding agent does:**
 
-Add a complete **Windows** section to `docs/INSTALLATION.md`. Insert it after the existing "System Requirements" section and before "Quick Installation". The Windows section must cover:
+> **Note:** The plan originally targeted `docs/INSTALLATION.md`, but the Windows content was instead added to `GETTING_STARTED.md` (the existing installation/setup guide at the project root). `docs/INSTALLATION.md` was never created; `GETTING_STARTED.md` is the canonical setup document.
 
-1. **Windows System Requirements** — Python 3.11 (official installer, not Microsoft Store), Git for Windows, Windows 10 or 11
-2. **Windows Quick Installation** — 4-step numbered list: install Python, install Git, clone repo, double-click `setup.bat`
-3. **Windows Daily Launch** — double-click `run.bat`; what the launcher does (env check, update check, data folder prompt, GUI launch)
-4. **Windows Troubleshooting** — cover each risk from the Risk Register:
+Added a complete **Windows** section to `GETTING_STARTED.md` covering:
+
+1. **Windows prerequisites** — Python 3.11 (official installer, not Microsoft Store), Git for Windows, Windows 10 or 11
+2. **Windows first-time setup** — double-click `setup.bat`; what it does (env check, venv creation, pip install, tkinter verify)
+3. **Windows daily launch** — double-click `run.bat`; what the launcher does (env check, update check, data folder prompt, GUI launch)
+4. **Windows troubleshooting** — covers all risks from the Risk Register:
    - "python is not recognized" → Python not on PATH → reinstall with PATH checkbox
    - "git is not recognized" → Git not installed → download link
    - "requirements.txt not found" → `git pull origin main` and retry
    - "tkinter not available" → reinstall Python with "tcl/tk and IDLE" checked
    - Antivirus blocking `.bat` → right-click → Run as administrator
    - "Virtual environment not found" → re-run `setup.bat`
-5. **Windows Update Behavior** — explain that `run.bat` → `launch_gui.py` checks for updates automatically; if a new version is available, it pulls and restarts
-6. **Windows Uninstall** — delete the `.venv` folder and the cloned repository folder
-
-**Also update** the existing "System Requirements" table at the top of `INSTALLATION.md` to add a Windows row.
-
-**Also update** the "Platform-Specific Notes" section to add a Windows subsection.
+5. **Windows update behavior** — `run.bat` → `launch_gui.py` checks for updates automatically; pulls and restarts if user confirms
 
 **Commit:**
 ```bash
-git add docs/INSTALLATION.md
-git commit -m "docs: add complete Windows section to INSTALLATION.md (Step 11)"
+git add GETTING_STARTED.md
+git commit -m "docs: add complete Windows section to GETTING_STARTED.md (Step 11)"
 ```
-
-**Check-in message to developer:**
-> `docs/INSTALLATION.md` has been updated with a complete Windows installation section covering prerequisites, setup, daily launch, troubleshooting, and update behavior. Next: update `README.md` to mention Windows support.
 
 **Manual validation gate:** None — documentation review happens at Step 13.
 
@@ -1114,7 +1108,7 @@ git commit -m "docs: add complete Windows section to INSTALLATION.md (Step 11)"
    - `run.bat` (new)
    - `.github/workflows/ci.yml` (new)
    - `tests/unit/test_launcher.py` (new)
-   - `docs/INSTALLATION.md` (modified)
+   - `GETTING_STARTED.md` (modified)
    - `README.md` (modified)
 
 3. Confirm CI is GREEN on both platforms (GATE 9A must already be confirmed).
@@ -1151,7 +1145,7 @@ git commit -m "docs: add complete Windows section to INSTALLATION.md (Step 11)"
 > - [ ] `pytest -v` passes locally on Mac
 > - [ ] CI is GREEN on both `macos-latest` and `windows-latest`
 > - [ ] GATE 10A (Windows smoke test) was confirmed
-> - [ ] `docs/INSTALLATION.md` Windows section reviewed and accurate
+> - [ ] `GETTING_STARTED.md` Windows section reviewed and accurate
 > - [ ] `README.md` changes reviewed
 > - [ ] Pull request approved and merged to `main`
 
