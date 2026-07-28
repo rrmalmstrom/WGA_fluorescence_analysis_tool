@@ -260,84 +260,68 @@ percentage = 10.0  # Default 10% above baseline
 
 ### Crossing Point Detection
 
-#### Linear Interpolation Method
+#### Second Derivative Method (Primary — `qc_second_derivative`)
+
+The crossing point (CP) is determined by finding the **maximum of the second derivative** of the fitted sigmoid curve. This identifies the point of maximum acceleration in fluorescence growth — the onset of the exponential phase — rather than an arbitrary threshold crossing.
 
 ```python
-def find_crossing_point(time_points: np.ndarray, 
-                       fitted_curve: np.ndarray,
-                       threshold: float) -> Optional[float]:
+def calculate_second_derivative_crossing_point_with_fitted_curve(
+        self, time_points: np.ndarray, fitted_parameters: List[float]) -> Optional[float]:
     """
-    Find threshold crossing point using linear interpolation.
-    
-    Uses fitted curve (not raw data) for precision and noise reduction.
+    Calculate crossing point using second derivative of pre-fitted sigmoid curve.
+
+    Uses the SAME fitted curve parameters used for plotting, ensuring alignment
+    between the displayed curve and the reported CP.
     """
-    for i in range(1, len(fitted_curve)):
-        if fitted_curve[i] > threshold and fitted_curve[i-1] <= threshold:
-            # Linear interpolation between crossing points
-            t1, y1 = time_points[i-1], fitted_curve[i-1]
-            t2, y2 = time_points[i], fitted_curve[i]
-            
-            # Calculate exact crossing time
-            crossing_time = t1 + (threshold - y1) * (t2 - t1) / (y2 - y1)
-            return crossing_time
-    
-    return None  # No crossing found
+    # Step 1: Create fine-resolution time grid (20× original density)
+    fine_time = np.linspace(time_points[0], time_points[-1], len(time_points) * 20)
+
+    # Step 2: Evaluate the fitted sigmoid on the fine grid
+    fitted_values = curve_fitter.sigmoid_5param(fine_time, *fitted_parameters)
+
+    # Step 3: Fit a CubicSpline and compute its second derivative
+    spline = CubicSpline(fine_time, fitted_values)
+    second_derivative = spline(fine_time, nu=2)
+
+    # Step 4: CP = time of maximum second derivative (steepest acceleration)
+    max_second_deriv_idx = np.argmax(second_derivative)
+    crossing_point = fine_time[max_second_deriv_idx]
+
+    return float(crossing_point)
 ```
 
-#### Why Use Fitted Curve?
+**Why the second derivative?**
+- The maximum of the second derivative marks the **onset of exponential growth** — the earliest point where the curve begins accelerating rapidly
+- It is independent of an arbitrary threshold percentage, making it more reproducible across assays with different baseline levels
+- Using the pre-fitted sigmoid at 20× resolution rather than raw data eliminates noise sensitivity
+- The CP is guaranteed to align with the plotted curve because both use the same fitted parameters
 
-**Noise Reduction**
-- Fitted curve smooths out measurement noise
-- More precise crossing point determination
-- Consistent results across replicates
+#### Two-Stage QC Gate
 
-**Sub-Timepoint Precision**
-- Linear interpolation provides precision beyond measurement intervals
-- Important for accurate kinetic analysis
-- Enables comparison of samples with different measurement frequencies
+Before the CP is calculated, two independent QC checks must both pass:
 
-#### Alternative Detection Methods
+**Stage 1 — Curve fitter QC** (`|percent_change| >= 10%`):
+- `percent_change` is computed from `mean(first 3 points)` vs `mean(last 3 points)`
+- Wells failing this check receive a polynomial fit (`fit_type="polynomial"`, `success=False`) and no CP is calculated
 
-**Second Derivative Method**
+**Stage 2 — Threshold analyzer QC** (`max_signal >= baseline × 1.10`):
+- Baseline = `mean(fluo_values[1:4])` (time points 2–4, skipping the first)
+- Wells passing Stage 1 but failing Stage 2 receive a sigmoid fit but no CP
+
+Only wells passing **both** stages receive a crossing point value.
+
+#### Linear Interpolation Utility (Not Used in Main Pipeline)
+
+A linear interpolation method exists in `curve_fitting.py` as `find_crossing_time()`. It finds the first point where the fitted curve crosses a fixed threshold value:
+
 ```python
-def find_crossing_second_derivative(time_points: np.ndarray,
-                                  fitted_curve: np.ndarray) -> Optional[float]:
-    """
-    Find crossing point using second derivative (inflection point).
-    
-    Identifies the point of maximum growth rate.
-    """
-    # Calculate second derivative
-    first_deriv = np.gradient(fitted_curve, time_points)
-    second_deriv = np.gradient(first_deriv, time_points)
-    
-    # Find zero crossing of second derivative
-    zero_crossings = np.where(np.diff(np.signbit(second_deriv)))[0]
-    
-    if len(zero_crossings) > 0:
-        # Use first zero crossing (inflection point)
-        idx = zero_crossings[0]
-        return time_points[idx]
-    
-    return None
+for i in range(1, len(fitted_values)):
+    if fitted_values[i] > threshold and fitted_values[i-1] <= threshold:
+        crossing_time = t1 + (threshold - y1) * (t2 - t1) / (y2 - y1)
+        return crossing_time
 ```
 
-**Maximum Derivative Method**
-```python
-def find_crossing_max_derivative(time_points: np.ndarray,
-                                fitted_curve: np.ndarray) -> Optional[float]:
-    """
-    Find crossing point at maximum derivative (steepest slope).
-    """
-    # Calculate first derivative
-    derivative = np.gradient(fitted_curve, time_points)
-    
-    # Find maximum derivative point
-    max_deriv_idx = np.argmax(derivative)
-    
-    return time_points[max_deriv_idx]
-```
-
+This function is available as a utility but is **not called by the analysis pipeline**. The pipeline exclusively uses the second derivative method described above.
 ### Quality Control Filters
 
 #### Data Quality Assessment

@@ -24,7 +24,7 @@ Supported instruments:
 - Load fluorescence data and plate layout files via a point-and-click GUI
 - Interactive 96-well plate visualization with color-coded well types
 - 5-parameter sigmoid curve fitting with multiple fitting strategies and timeout protection
-- Crossing-point (CP) detection via threshold crossing (10% above early-timepoint baseline)
+- Crossing-point (CP) detection via second derivative of the fitted sigmoid curve (onset of exponential phase); a 10% above baseline QC filter gates which wells receive a CP
 - Pass/fail assessment using dual criteria: CP time and total fluorescence change
 - Statistical summary by well group
 - CSV export of all analysis results

@@ -858,18 +858,22 @@ Follow PEP 8 with these specific guidelines:
 ```python
 # Good: Clear function names and type hints
 def calculate_crossing_point(time_points: np.ndarray,
-                           fitted_curve: np.ndarray,
-                           threshold: float) -> Optional[float]:
+                           fitted_parameters: list,
+                           ) -> Optional[float]:
     """
-    Calculate threshold crossing point using linear interpolation.
-    
+    Calculate crossing point using second derivative of the fitted sigmoid curve.
+
+    The CP is the time of maximum second derivative (maximum acceleration),
+    which marks the onset of the exponential growth phase. A CubicSpline is
+    fit to the sigmoid evaluated on a 20× fine-resolution grid so the result
+    is sub-timepoint accurate and noise-immune.
+
     Args:
-        time_points: Time values in hours
-        fitted_curve: Fitted fluorescence values
-        threshold: Threshold value to cross
-        
+        time_points: Time values in hours (original measurement grid)
+        fitted_parameters: 5-parameter sigmoid coefficients [a, b, c, d, e]
+
     Returns:
-        Crossing time in hours, or None if no crossing found
+        Crossing time in hours, or None if calculation fails
     """
     # Implementation...
     pass

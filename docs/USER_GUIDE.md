@@ -487,9 +487,9 @@ Where:
 - Threshold = baseline × 1.10 (10% above baseline)
 
 **Crossing Point Detection**
-- Uses fitted curve (not raw data) for precision
-- Linear interpolation between crossing points
-- Reports time in hours with high precision
+- Uses the fitted sigmoid curve (not raw data) for precision and noise immunity
+- Determined by the **maximum of the second derivative** of the fitted curve — the onset of the exponential growth phase
+- Reports time in hours at fine sub-timepoint resolution (20× interpolated grid)
 
 ### Handling Analysis Issues
 
@@ -558,10 +558,11 @@ For each successfully analyzed well, you get:
 - Automatically calculated for each well
 - Used for consistent crossing point determination
 
-**Crossing Point**: Time when fluorescence crosses the threshold
-- Reported in hours with high precision
-- Calculated using fitted curve (not raw data)
-- Linear interpolation for sub-timepoint accuracy
+**Crossing Point**: Time of maximum acceleration in fluorescence growth
+- Determined by the maximum of the second derivative of the fitted sigmoid curve
+- Marks the onset of the exponential growth phase
+- Calculated using the fitted curve (not raw data) for noise immunity
+- Reported in hours at fine sub-timepoint resolution
 
 **Fluorescence Change**: Total change from start to end
 - Final fluorescence minus initial fluorescence
@@ -1105,7 +1106,7 @@ A: Usually due to insufficient signal change, unusual patterns, or data quality 
 A: The 10% baseline method is fixed, but pass/fail thresholds are configurable.
 
 **Q: How accurate are the crossing points?**
-A: Very accurate - calculated using fitted curves with linear interpolation for sub-timepoint precision.
+A: Very accurate — calculated using the maximum of the second derivative of the fitted sigmoid curve, evaluated on a 20× fine-resolution time grid. This identifies the onset of the exponential growth phase with sub-timepoint precision.
 
 ### Results and Export
 
